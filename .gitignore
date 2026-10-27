@@ -16,3 +16,6 @@ build/
 dist/
 *.spec
 *.zip
+
+# Local directory may contain contact information.
+catalog.json

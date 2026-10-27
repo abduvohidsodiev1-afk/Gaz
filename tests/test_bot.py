@@ -27,7 +27,7 @@ class BotTests(unittest.TestCase):
     def test_commands(self):
         self.assertIn('Propan', bot.reply_text('/start@gazpropan_uz_bot'))
         self.assertIn('/start', bot.reply_text('/help'))
-        self.assertIn('/help', bot.reply_text('salom'))
+        self.assertIn('Шохобчалар', bot.reply_text('salom'))
 
     def test_network_error_does_not_expose_token(self):
         import urllib.error

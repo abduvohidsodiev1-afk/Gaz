@@ -10,6 +10,7 @@ import sys
 import threading
 import urllib.error
 import urllib.request
+import catalog
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
@@ -31,6 +32,7 @@ def load_token(base):
 def connect_db(path):
     db = sqlite3.connect(path)
     db.execute('CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value INTEGER NOT NULL)')
+    catalog.initialize(db)
     db.commit()
     return db
 
@@ -46,12 +48,18 @@ def save_offset(db, value):
 
 
 def reply_text(text):
-    command = text.split()[0].split('@')[0] if text.split() else ''
-    if command == '/start':
-        return 'Assalomu alaykum! Propan botiga xush kelibsiz. Hozir botning boshlang‘ich versiyasi ishlayapti. /help — yordam.'
-    if command == '/help':
-        return 'Buyruqlar: /start, /help. Shoxobcha, narx va buyurtma funksiyalari hali sozlanmagan.'
-    return 'Yordam uchun /help buyrug‘ini yuboring.'
+    with contextlib.closing(connect_db(':memory:')) as db:
+        return catalog.responses(db, {'text': text})[0]
+
+
+def handle_message(api, db, message):
+    if message.get('chat', {}).get('type') != 'private':
+        return
+    if 'text' not in message and 'location' not in message:
+        return
+    for text in catalog.responses(db, message):
+        api.call('sendMessage', {'chat_id': message['chat']['id'], 'text': text,
+                                 'reply_markup': catalog.KEYBOARD})
 
 
 class Telegram:
@@ -107,6 +115,7 @@ def run(base):
         if api.call('getWebhookInfo', {}).get('url'):
             raise ValueError('Botda webhook yoqilgan. Polling uchun avval webhook sozlamasini tekshiring.')
         with contextlib.closing(connect_db(base / 'data' / 'propan.sqlite3')) as db:
+            catalog.import_catalog(db, base / 'catalog.json')
             print('PropanBot ishlayapti. To‘xtatish: STOP.bat yoki Ctrl+C.', flush=True)
             while not stopped.is_set() and not stop_path.exists():
                 try:
@@ -115,8 +124,7 @@ def run(base):
                         if stopped.is_set() or stop_path.exists():
                             break
                         message = update.get('message', {})
-                        if 'text' in message and message.get('chat', {}).get('type') == 'private':
-                            api.call('sendMessage', {'chat_id': message['chat']['id'], 'text': reply_text(message['text'])})
+                        handle_message(api, db, message)
                         save_offset(db, update['update_id'] + 1)
                 except RuntimeError:
                     print('Telegram bilan aloqa xatosi. 5 soniyadan keyin qayta uriniladi.', flush=True)
