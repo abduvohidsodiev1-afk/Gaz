@@ -12,6 +12,7 @@ import urllib.error
 import urllib.request
 import catalog
 import ingestion
+import conversation
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
@@ -43,6 +44,7 @@ def connect_db(path):
     db.execute('CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value INTEGER NOT NULL)')
     catalog.initialize(db)
     ingestion.initialize(db)
+    conversation.initialize(db)
     db.commit()
     return db
 
@@ -75,7 +77,12 @@ def handle_message(api, db, message):
     else:
         trusted = (message.get('chat', {}).get('type') in ('group', 'supergroup')
                    and message.get('chat', {}).get('username', '').casefold() == ingestion.SOURCE_USERNAME)
-        result = ingestion.ingest(db, message) if trusted else None
+        if trusted:
+            result = conversation.observe(db, message)
+            if result is None:
+                result = ingestion.ingest(db, message)
+        else:
+            result = None
         if not private:
             return  # Read configured group sources quietly; do not post to groups.
         if result:

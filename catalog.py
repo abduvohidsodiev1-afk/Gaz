@@ -92,6 +92,8 @@ def normalize(text):
 
 
 def directory(db, kind, query='', location=None):
+    import conversation
+    area_results = conversation.listings(db, query) if kind in ('stations', 'prices') and not location else []
     rows = [json.loads(row[0]) for row in db.execute('SELECT body FROM catalog WHERE kind=? ORDER BY id', ('masters' if kind == 'masters' else 'stations',))]
     query = normalize(query.strip())
     if query:
@@ -103,6 +105,8 @@ def directory(db, kind, query='', location=None):
         rows = [r for r in rows if r.get('latitude') is not None and r.get('longitude') is not None]
         rows.sort(key=lambda r: distance(lat, lon, r))
     if not rows:
+        if area_results:
+            return area_results
         if query:
             return ['Бу ҳудуд бўйича маълумот топилмади. Бошқа шаҳар ёки туман номини ёзинг.']
         return ['Ҳозирча бу бўлимга маълумот қўшилмаган. Текширилган маълумотлар киритилгач, шу ерда кўринади.']
@@ -127,7 +131,7 @@ def directory(db, kind, query='', location=None):
         messages.append('\n'.join(lines))
     if len(rows) > 10:
         messages.append('Биринчи 10 та натижа кўрсатилди. Аниқлаш учун шаҳар ёки туман номини ёзинг.')
-    return messages
+    return messages + area_results
 
 
 def responses(db, message):
