@@ -1,6 +1,7 @@
 """Local station and public business contact directory; no user tracking."""
 from datetime import date
 import json
+import hashlib
 import math
 
 STATIONS = '⛽ Шохобчалар'
@@ -12,6 +13,7 @@ KEYBOARD = {'keyboard': [[STATIONS, PRICES], [MASTERS, '🇺🇿 Ҳудудла�
 
 def initialize(db):
     db.execute('CREATE TABLE IF NOT EXISTS catalog (kind TEXT NOT NULL, id TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(kind, id))')
+    db.execute('CREATE TABLE IF NOT EXISTS catalog_import (digest TEXT PRIMARY KEY)')
     db.commit()
 
 
@@ -20,7 +22,11 @@ def import_catalog(db, path):
     if not path.exists():
         return
     try:
-        data = json.loads(path.read_text(encoding='utf-8-sig'))
+        content = path.read_text(encoding='utf-8-sig')
+        digest = hashlib.sha256(content.encode()).hexdigest()
+        if db.execute('SELECT 1 FROM catalog_import WHERE digest=?', (digest,)).fetchone():
+            return
+        data = json.loads(content)
         if not isinstance(data, dict) or set(data) != {'stations', 'masters'}:
             raise ValueError
         rows = []
@@ -57,6 +63,8 @@ def import_catalog(db, path):
         with db:
             db.execute('DELETE FROM catalog')
             db.executemany('INSERT INTO catalog VALUES (?, ?, ?)', rows)
+            db.execute('DELETE FROM catalog_import')
+            db.execute('INSERT INTO catalog_import VALUES (?)', (digest,))
     except (ValueError, TypeError, KeyError, OSError):
         raise ValueError('catalog.json файлида хато бор. Йўриқномадаги шаклни текширинг. База ўзгартирилмади.') from None
 
@@ -114,6 +122,8 @@ def directory(db, kind, query='', location=None):
                 lines.append(f"Харита: https://www.google.com/maps/search/?api=1&query={r['latitude']},{r['longitude']}")
                 if location:
                     lines.append(f"Тахминий масофа: {distance(*location, r):.1f} км (тўғри чизиқ бўйича)")
+        if r.get('_event_time'):
+            lines.append('Манба: @propan_uzbekistan_2026 гуруҳидаги хабар. Маълумот мустақил текширилмаган.')
         messages.append('\n'.join(lines))
     if len(rows) > 10:
         messages.append('Биринчи 10 та натижа кўрсатилди. Аниқлаш учун шаҳар ёки туман номини ёзинг.')

@@ -11,11 +11,12 @@ import threading
 import urllib.error
 import urllib.request
 import catalog
+import ingestion
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
 
-def load_token(base):
+def load_settings(base):
     values = {}
     path = base / '.env'
     if path.exists():
@@ -23,7 +24,15 @@ def load_token(base):
             if line.strip() and not line.lstrip().startswith('#') and '=' in line:
                 key, value = line.split('=', 1)
                 values[key.strip()] = value.strip().strip('\"\'')
-    token = os.environ.get('TELEGRAM_BOT_TOKEN', values.get('TELEGRAM_BOT_TOKEN', ''))
+    return values
+
+
+def setting(base, name):
+    return os.environ.get(name, load_settings(base).get(name, ''))
+
+
+def load_token(base):
+    token = setting(base, 'TELEGRAM_BOT_TOKEN')
     if not token or ':' not in token:
         raise ValueError('Token topilmadi. .env.example nusxasini .env deb saqlang va tokenni kiriting.')
     return token
@@ -33,6 +42,7 @@ def connect_db(path):
     db = sqlite3.connect(path)
     db.execute('CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value INTEGER NOT NULL)')
     catalog.initialize(db)
+    ingestion.initialize(db)
     db.commit()
     return db
 
@@ -53,13 +63,29 @@ def reply_text(text):
 
 
 def handle_message(api, db, message):
-    if message.get('chat', {}).get('type') != 'private':
-        return
-    if 'text' not in message and 'location' not in message:
-        return
-    for text in catalog.responses(db, message):
-        api.call('sendMessage', {'chat_id': message['chat']['id'], 'text': text,
-                                 'reply_markup': catalog.KEYBOARD})
+    private = message.get('chat', {}).get('type') == 'private'
+    chat_id = message.get('chat', {}).get('id')
+    user_id = message.get('from', {}).get('id')
+    text = message.get('text', '')
+    command = text.split()[0].split('@')[0] if text.split() else ''
+    if private and command == '/myid':
+        replies = ['Сизнинг Telegram ID: ' + str(user_id)]
+    elif private and command == '/format':
+        replies = ['Автоматик қабул қилиш намунаси:\n\nШохобча: [номи]\nҲудуд: [вилоят, туман]\nМанзил: [аниқ манзил]\nНарх: 6000 сўм\n\nУста: [номи]\nҲудуд: [вилоят, туман]\nМанзил: [устахона манзили]\nХизмат: [хизмат тури]\nТелефон: [иш телефони]\n\nҲар бир жойни алоҳида хабарда юборинг. Бу фақат шакл намунаси.']
+    else:
+        trusted = (message.get('chat', {}).get('type') in ('group', 'supergroup')
+                   and message.get('chat', {}).get('username', '').casefold() == ingestion.SOURCE_USERNAME)
+        result = ingestion.ingest(db, message) if trusted else None
+        if not private:
+            return  # Read configured group sources quietly; do not post to groups.
+        if result:
+            replies = [result]
+        elif 'text' in message or 'location' in message:
+            replies = catalog.responses(db, message)
+        else:
+            return
+    for reply in replies:
+        api.call('sendMessage', {'chat_id': chat_id, 'text': reply, 'reply_markup': catalog.KEYBOARD})
 
 
 class Telegram:
@@ -123,7 +149,7 @@ def run(base):
                     for update in updates:
                         if stopped.is_set() or stop_path.exists():
                             break
-                        message = update.get('message', {})
+                        message = update.get('message', update.get('channel_post', {}))
                         handle_message(api, db, message)
                         save_offset(db, update['update_id'] + 1)
                 except RuntimeError:
