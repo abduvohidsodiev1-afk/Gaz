@@ -75,6 +75,31 @@ class DirectoryTests(unittest.TestCase):
         self.assertIn('https://clck.ru/3RUB3W', str(ibr['reply_markup']))
         self.assertEqual(directory.find('ИБРда пропан қанча?'), ['19'])
 
+    def test_exact_screenshot_fact_then_question_returns_8200(self):
+        api = Mock()
+        propanbot.handle_message(api, self.db, self.msg(1, '8 заправкада нарх 8200'))
+        api.call.assert_not_called()
+        propanbot.handle_message(api, self.db, self.msg(2, '8 заправкада нарх қанча?'))
+        payload = api.call.call_args.args[1]
+        self.assertIn('8 200', payload['text'])
+        self.assertIn('Сассу кўприкка етмасдан', payload['text'])
+        self.assertIn('inline_keyboard', payload['reply_markup'])
+        self.assertIn('st:bridge8', str(payload['reply_markup']))
+        self.assertNotIn('https://clck.ru/3Pdfu3', str(payload))  # Not numbered-list Kumaryk.
+
+    def test_explicit_price_label_and_spaced_thousands(self):
+        for text in ['8 заправкада нарх 8200', '8 заправкада нархи 8200', '8 zapravkada narx: 8 200']:
+            parsed = __import__('conversation').proposal(text)
+            self.assertEqual(parsed['price'], 8200)
+            self.assertFalse(parsed['question'])
+        self.assertIsNone(__import__('conversation').proposal('8 заправкада нарх қанча?'))
+
+    def test_retained_history_is_reprocessed_without_resending(self):
+        import history_import
+        history_import.remember(self.db, self.msg(1, '8 заправкада нарх 8200'))
+        history_import.replay(self.db)
+        self.assertIn('8 200', directory.detail(self.db, 'bridge8')['text'])
+
     def test_pagination_at_most_three_rows(self):
         first = directory.page()
         self.assertLessEqual(len(first['reply_markup']['inline_keyboard']), 3)

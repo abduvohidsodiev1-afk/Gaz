@@ -43,7 +43,7 @@ class LandmarkTests(unittest.TestCase):
         conversation.observe(self.db, self.msg(1, 'қизил заправка 8600дан'))
         api = Mock()
         propanbot.handle_message(api, self.db, self.msg(2, 'Кофе заправкада пропан қанча?'))
-        self.assertIn('8,600', api.call.call_args.args[1]['text'])
+        self.assertIn('8 600', api.call.call_args.args[1]['text'])
         self.assertIn('рўпарасида', api.call.call_args.args[1]['text'])
         answer = group_answers.answer(self.db, self.msg(3, 'Сассу мостдан кейин заправка қаерда?'))
         self.assertIn('9-заправка', answer)

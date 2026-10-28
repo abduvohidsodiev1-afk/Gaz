@@ -39,7 +39,13 @@ STATIONS = [
 ('pskent','Пскент','','https://clck.ru/3Pdj8n',['pskent']),
 ('chinaz','Чиноз','','https://clck.ru/3PdjJh',['chinaz','chinoz']),
 ]
-DATA = {row[0]: row for row in STATIONS}
+EXTRA_STATIONS = [
+('bridge8', '8-заправка — Сассу кўприкка етмасдан', '', '', ['8 zapravka']),
+('bridge9', '9-заправка — Сассу кўприкдан кейин', '', '', ['9 zapravka']),
+('coffee', 'Кофе / Қизил заправка — 9-заправканинг рўпарасида', '', '', ['kofe zapravka', 'qizil zapravka']),
+]
+ALL_STATIONS = STATIONS + EXTRA_STATIONS
+DATA = {row[0]: row for row in ALL_STATIONS}
 
 
 def initialize(db):
@@ -58,7 +64,7 @@ def find(text):
     tokens = re.findall(r'[a-z0-9]+', station_names.folded(text))
     exact = []
     aliases = []
-    for sid, name, hours, location, variants in STATIONS:
+    for sid, name, hours, location, variants in ALL_STATIONS:
         for alias in variants + [name]:
             folded = station_names.folded(alias)
             wanted = folded.split()
@@ -81,7 +87,7 @@ def find(text):
 
 def is_question(text):
     norm = catalog.normalize(text).replace('ы', 'i')
-    return bool(re.search(r'\?|\b(?:qancha|nechi|necha|qayerda|qaerda|bormi|kerak|narxi|ochiqmi|yopiqmi|ishlayaptimi|ishlaydimi|otkrit|zakrit)\b', norm))
+    return bool(re.search(r'\?|\b(?:qancha|nechi|necha|qayerda|qaerda|bormi|kerak|ochiqmi|yopiqmi|ishlayaptimi|ishlaydimi|otkrit|zakrit)\b', norm))
 
 
 def ambiguous(message):
@@ -100,6 +106,9 @@ def observe(db, message):
         return
     norm = catalog.normalize(text).replace('ы', 'i')
     prices = re.findall(r'(?<!\d)(\d{4,5})\s*(?:s[ou]m|dan)\b', norm)
+    parsed = conversation.proposal(text)
+    if not prices and parsed and not parsed['question']:
+        prices = [str(parsed['price'])]
     if len(prices) > 1:
         return
     status = None
@@ -149,7 +158,7 @@ def detail(db, sid):
     if row[2]:
         text.append('🕒 Эълон қилинган иш вақти: ' + row[2])
     text.append('Гуруҳ хабарлари асосида; ҳолат ўзгариши мумкин.')
-    buttons = [[{'text': '💰 Нарх', 'callback_data': 'st:'+sid}, {'text': '🟢 Ҳолат', 'callback_data': 'st:'+sid}, {'text': '📍 Локация', 'url': row[3]}]]
+    buttons = [[{'text': '💰 Нарх', 'callback_data': 'st:'+sid}, {'text': '🟢 Ҳолат', 'callback_data': 'st:'+sid}, ({'text': '📍 Локация', 'url': row[3]} if row[3] else {'text': '📍 Мўлжал', 'callback_data': 'st:'+sid})]]
     source = item.get('price_source') or item.get('status_source') or {}
     bottom = []
     if source.get('link'):

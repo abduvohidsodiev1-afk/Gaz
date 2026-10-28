@@ -76,7 +76,7 @@ def answer(db, message):
         history = db.execute('SELECT count(*) FROM source_history').fetchone()[0]
         prices = db.execute('SELECT count(*) FROM area_prices').fetchone()[0]
         masters = db.execute("SELECT count(*) FROM catalog WHERE kind='masters'").fetchone()[0]
-        return f'Версия: menu-28. Маҳаллий тарих: {history}/1000 хабар. Ҳудуд нархлари: {prices}. Усталар: {masters}. Аввалги Telegram тарихи фақат JSON импорт қилингач кўринади.'
+        return f'Версия: price-labels. Маҳаллий тарих: {history}/1000 хабар. Ҳудуд нархлари: {prices}. Усталар: {masters}. Аввалги Telegram тарихи фақат JSON импорт қилингач кўринади.'
     if command in ('/start', '/help'):
         return 'Саволни шу гуруҳга ёзинг: «Чоштепада пропан қанча?», «Қибрайда шохобча қаерда?» ёки «Тошкентда уста телефони борми?». Буйруқлар: /prices, /stations, /masters. Жавобни шу ерда бераман.'
     kind = commands.get(command)

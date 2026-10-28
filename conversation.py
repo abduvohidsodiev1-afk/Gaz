@@ -124,6 +124,15 @@ def resolve_known(db, name):
 
 def proposal(text):
     norm = catalog.normalize(text).strip()
+    labelled = re.fullmatch(r'([a-z0-9][a-z0-9\s\-]{2,80}?)\s+(?:narx(?:i)?|sena)\s*[:=\-]?\s*(\d{1,2} \d{3}|\d{4,5})\s*(?:s[ou]m|dan)?\s*([?!.]*)', norm)
+    if labelled:
+        place, raw_price, punctuation = labelled.groups()
+        price = int(raw_price.replace(' ', ''))
+        if not 500 <= price <= 100000 or landmark_place(place) == 'ambiguous-bridge':
+            return None
+        if place.endswith('da'):
+            place = place[:-2]
+        return {'place': canonical_place(place), '_raw_place': place, 'price': price, 'question': '?' in punctuation}
     match = re.fullmatch(r'([a-z0-9][a-z0-9\s\-ʻ’\x27]{2,70}?)\s+(?:(?:ishga\s+tushdi|ochildi|ishlayapti)\s+)?(\d{4,5})\s*(danmi|dan|s[ou]m(?:dan)?(?:mi)?)\s*([?!.]*)', norm)
     if not match or not 500 <= int(match[2]) <= 100000:
         return None
