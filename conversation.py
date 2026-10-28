@@ -10,12 +10,11 @@ UZ = timezone(timedelta(hours=5))
 
 
 PLACE_ALIASES = {
-    'ibr': 'yangi uzbekistan',
+    'ibr': 'kibray ibr',
+    'kibray ibr': 'kibray ibr', 'qibray ibr': 'kibray ibr',
     'yangi uzbekiston': 'yangi uzbekistan',
     'yangi uzbekistan': 'yangi uzbekistan',
     'yangi ozbekiston': 'yangi uzbekistan',
-    'yangi uzbekiston ibr': 'yangi uzbekistan',
-    'yangi uzbekistan ibr': 'yangi uzbekistan',
 }
 
 
@@ -80,16 +79,26 @@ def initialize(db):
     db.execute('CREATE TABLE IF NOT EXISTS area_prices (place TEXT PRIMARY KEY, body TEXT NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS price_context (chat_id INTEGER, message_id INTEGER, body TEXT NOT NULL, PRIMARY KEY(chat_id,message_id))')
     # Consolidate previously saved exact aliases, retaining the newest observation.
+    for alias, old_canonical in list(db.execute('SELECT alias, canonical FROM station_aliases')):
+        authoritative = PLACE_ALIASES.get(catalog.normalize(alias))
+        if authoritative and authoritative != old_canonical:
+            db.execute('UPDATE station_aliases SET canonical=? WHERE alias=?', (authoritative, alias))
     rows = [json.loads(r[0]) for r in db.execute('SELECT body FROM area_prices')]
     grouped = {}
     for row in rows:
         place = canonical_place(row['place'])
+        link = (row.get('_price_source') or {}).get('link', '')
+        if link:
+            match = re.search(r'/([0-9]+)$', link)
+            contexts = list(db.execute('SELECT body FROM price_context WHERE message_id=?', (int(match[1]),))) if match else []
+            if len(contexts) == 1:
+                raw = json.loads(contexts[0][0]).get('_raw_place')
+                if raw:
+                    place = canonical_place(raw)
         if place not in grouped or (row['updated'], row['report_stamp']) > (grouped[place]['updated'], grouped[place]['report_stamp']):
             grouped[place] = dict(row, place=place)
     with db:
-        for row in rows:
-            if canonical_place(row['place']) != row['place']:
-                db.execute('DELETE FROM area_prices WHERE place=?', (row['place'],))
+        db.execute('DELETE FROM area_prices')
         for place, row in grouped.items():
             db.execute('INSERT INTO area_prices VALUES (?, ?) ON CONFLICT(place) DO UPDATE SET body=excluded.body', (place, json.dumps(row)))
     db.commit()
@@ -104,7 +113,7 @@ def known_aliases(db):
         if names.count(name) == 1:
             aliases[name] = canonical_place(name)
     for alias, canonical in db.execute('SELECT alias, canonical FROM station_aliases'):
-        aliases[alias] = canonical
+        aliases.setdefault(alias, canonical)
     return aliases
 
 
@@ -145,7 +154,7 @@ def get_context(db, chat_id, message):
     row = db.execute('SELECT body FROM price_context WHERE chat_id=? AND message_id=?', (chat_id, message.get('message_id'))).fetchone()
     if row:
         context = json.loads(row[0])
-        context['place'] = canonical_place(context['place'])
+        context['place'] = canonical_place(context.get('_raw_place', context['place']))
         return context
     candidate = proposal(message.get('text', message.get('caption', ''))) or place_caption(message.get('caption', message.get('text', '')))
     if candidate:

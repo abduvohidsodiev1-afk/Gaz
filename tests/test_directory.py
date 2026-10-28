@@ -62,6 +62,19 @@ class DirectoryTests(unittest.TestCase):
         self.assertEqual(methods, ['answerCallbackQuery', 'editMessageText'])
         self.assertEqual(api.call.call_args.args[1]['message_id'], 50)
 
+    def test_ibr_and_yangi_have_separate_prices_and_locations(self):
+        directory.observe(self.db, self.msg(1, 'Янги Узбекистан 8300сум'))
+        directory.observe(self.db, self.msg(2, 'IBR 8200сум'))
+        yangi = directory.detail(self.db, '6')
+        ibr = directory.detail(self.db, '19')
+        self.assertIn('8 300', yangi['text'])
+        self.assertNotIn('8 200', yangi['text'])
+        self.assertIn('8 200', ibr['text'])
+        self.assertNotIn('8 300', ibr['text'])
+        self.assertIn('https://clck.ru/3PdfBw', str(yangi['reply_markup']))
+        self.assertIn('https://clck.ru/3RUB3W', str(ibr['reply_markup']))
+        self.assertEqual(directory.find('ИБРда пропан қанча?'), ['19'])
+
     def test_pagination_at_most_three_rows(self):
         first = directory.page()
         self.assertLessEqual(len(first['reply_markup']['inline_keyboard']), 3)

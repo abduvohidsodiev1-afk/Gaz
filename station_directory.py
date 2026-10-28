@@ -15,7 +15,7 @@ STATIONS = [
 ('3','Медгородок','','https://clck.ru/3PdccR',['medgorodok']),
 ('4','Назарбек','','https://clck.ru/3QgiUE',['nazarbek']),
 ('5','Бектемир Мажнунтол','24/7','https://clck.ru/3SRtLY',['bektemir majnuntol','bektemir']),
-('6','Янги Ўзбекистон','','https://clck.ru/3PdfBw',['yangi uzbekiston','yangi uzbekistan','yangi ozbekiston','ibr']),
+('6','Янги Ўзбекистон','','https://clck.ru/3PdfBw',['yangi uzbekiston','yangi uzbekistan','yangi ozbekiston']),
 ('7','Панельный','','https://clck.ru/3PdfRr',['panelniy','panelnyy']),
 ('8','Қумариқ маҳалласи','','https://clck.ru/3Pdfu3',['kumaryk','qumariq','kumariq']),
 ('9','Нўғойқўрғон маҳалласи','24/7','https://clck.ru/3PdgAY',['nugoykurgon','nogoyqorgon','nugoyqurgon']),

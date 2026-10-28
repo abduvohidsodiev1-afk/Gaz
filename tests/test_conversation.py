@@ -97,24 +97,38 @@ class ConversationTests(unittest.TestCase):
             self.assertEqual(result['place'], 'yangi uzbekistan')
         self.assertIsNone(conversation.proposal('Янги Узбекистан ишга тушмади 8300сум'))
 
-    def test_ibr_and_yangi_uzbekistan_share_one_price(self):
+    def test_ibr_and_yangi_uzbekistan_are_separate(self):
         conversation.observe(self.db, self.msg(30, 'Янги Узбекистан ишга тушди 8300сум'))
         conversation.observe(self.db, self.msg(31, 'IBR 8400 dan'))
-        self.assertEqual(len(self.prices()), 1)
-        self.assertEqual(self.prices()[0]['price'], 8400)
+        self.assertEqual(len(self.prices()), 2)
+        self.assertIn('8,400', conversation.listings(self.db, 'ИБР')[0])
+        self.assertIn('8,300', conversation.listings(self.db, 'Янги Ўзбекистон')[0])
         self.assertEqual(len(conversation.listings(self.db, 'ИБР')), 1)
         self.assertEqual(len(conversation.listings(self.db, 'Янги Ўзбекистон')), 1)
         # Do not conflate other qualified station names with this exact alias.
         self.assertNotEqual(conversation.canonical_place('Кибрай ИБР'), 'yangi uzbekistan')
 
-    def test_old_alias_rows_merge_on_startup(self):
+    def test_old_ibr_rows_are_kept_separate_on_startup(self):
         for place, price, stamp in [('ibr', 8300, 100), ('yangi uzbekistan', 8400, 200)]:
             row = {'place': place, 'price': price, 'updated': '2026-10-27', 'report_stamp': stamp, 'explicit_date': False}
             self.db.execute('INSERT INTO area_prices VALUES (?, ?)', (place, json.dumps(row)))
         self.db.commit()
         conversation.initialize(self.db)
+        self.assertEqual(len(self.prices()), 2)
+        self.assertIn('8,300', conversation.listings(self.db, 'ibr')[0])
+        self.assertIn('8,400', conversation.listings(self.db, 'yangi uzbekistan')[0])
+
+    def test_wrong_saved_ibr_alias_is_corrected_from_raw_context(self):
+        self.db.execute('INSERT INTO station_aliases VALUES (?, ?)', ('ibr', 'yangi uzbekistan'))
+        context = {'place': 'yangi uzbekistan', '_raw_place': 'ibr', 'price': 8200, 'question': False, 'stamp': 100}
+        row = {'place': 'yangi uzbekistan', 'price': 8200, 'updated': '2026-10-20', 'report_stamp': 100, 'explicit_date': False, '_price_source': {'link': 'https://t.me/propan_uzbekistan_2026/42'}}
+        self.db.execute('INSERT INTO price_context VALUES (?, ?, ?)', (-1, 42, json.dumps(context)))
+        self.db.execute('INSERT INTO area_prices VALUES (?, ?)', ('yangi uzbekistan', json.dumps(row)))
+        self.db.commit()
+        conversation.initialize(self.db)
+        self.assertEqual(conversation.known_aliases(self.db)['ibr'], 'kibray ibr')
+        self.assertEqual(self.prices()[0]['place'], 'kibray ibr')
         self.assertEqual(len(self.prices()), 1)
-        self.assertEqual(self.prices()[0]['price'], 8400)
 
     def test_no_station_or_coordinates_invented(self):
         conversation.observe(self.db, self.msg(1, 'Choshtepa 8500 dan'))

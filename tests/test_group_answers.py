@@ -75,14 +75,14 @@ class GroupAnswerTests(unittest.TestCase):
         propanbot.handle_message(self.api, self.db, self.msg(21, 'Янги Узбекистанда пропан қанча?'))
         self.assertIn('8 300', self.api.call.call_args.args[1]['text'])
 
-    def test_alias_question_returns_same_station_price(self):
+    def test_ibr_question_does_not_borrow_yangi_price(self):
         propanbot.handle_message(self.api, self.db, self.msg(30, 'Янги Узбекистан ишга тушди 8300сум'))
         for mid, text in [(31, 'ИБРда пропан қанча?'), (32, '/prices IBR')]:
             propanbot.handle_message(self.api, self.db, self.msg(mid, text))
             payload = self.api.call.call_args.args[1]
-            self.assertIn('Шохобчани танланг', payload['text'])
-            self.assertIn('st:6', str(payload['reply_markup']))
-            self.assertIn('st:19', str(payload['reply_markup']))
+            self.assertIn('Қибрай IBR', payload['text'])
+            self.assertNotIn('8 300', payload['text'])
+            self.assertIn('нарх ҳали тасдиқланмаган', payload['text'])
 
     def test_command_for_another_bot_is_ignored(self):
         propanbot.handle_message(self.api, self.db, self.msg(8, '/prices@other_bot Choshtepa'))
