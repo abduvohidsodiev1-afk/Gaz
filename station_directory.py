@@ -155,18 +155,14 @@ def detail(db, sid):
     if row[2]:
         text.append('🕒 Эълон қилинган иш вақти: ' + row[2])
     text.append('Гуруҳ хабарлари асосида; ҳолат ўзгариши мумкин.')
-    buttons = [[{'text': '💰 Нарх', 'callback_data': 'st:'+sid}, {'text': '🟢 Ҳолат', 'callback_data': 'st:'+sid}, ({'text': '📍 Локация', 'url': row[3]} if row[3] else {'text': '📍 Мўлжал', 'callback_data': 'st:'+sid})]]
     source = item.get('price_source') or item.get('status_source') or {}
-    bottom = []
+    buttons = []
     if source.get('link'):
-        bottom.append({'text': '✉️ Манба', 'url': source['link']})
-    if source.get('username'):
-        bottom.append({'text': 'Муаллиф', 'url': 'https://t.me/' + source['username']})
-    elif source.get('name'):
+        buttons.append({'text': '✉️ Манба', 'url': source['link']})
+    if not source.get('username') and source.get('name'):
         text.append('Муаллиф: ' + source['name'])
-    bottom.append({'text': '📋 Шохобчалар', 'callback_data': 'pg:0'})
-    buttons.append(bottom)
-    return {'text': '\n'.join(text), 'reply_markup': {'inline_keyboard': buttons}}
+    buttons.append({'text': '📍 Мўлжал', 'url': row[3]} if row[3] else {'text': '📍 Мўлжал', 'callback_data': 'st:'+sid})
+    return {'text': '\n'.join(text), 'reply_markup': {'inline_keyboard': [buttons]}}
 
 
 def page(ids=None, number=0):

@@ -24,7 +24,7 @@ class DirectoryTests(unittest.TestCase):
         self.assertNotIn('ЗАКРЫТО', card['text'])
         self.assertNotIn('+998', card['text'])
         self.assertIn('https://clck.ru/3PdaHy', str(card['reply_markup']))
-        self.assertEqual(len(card['reply_markup']['inline_keyboard']), 2)
+        self.assertEqual(len(card['reply_markup']['inline_keyboard']), 1)
 
     def test_latest_price_and_status_have_separate_timestamps(self):
         directory.observe(self.db, self.msg(1, 'Назарбек очиқ 8300сум'))
@@ -55,7 +55,7 @@ class DirectoryTests(unittest.TestCase):
         payload = api.call.call_args.args[1]
         self.assertIn('Майорский — ГАИ пости, Оҳангарон шоссеси', payload['text'])
         self.assertLess(len(payload['text']), 500)
-        self.assertEqual(len(payload['reply_markup']['inline_keyboard']), 2)
+        self.assertEqual(len(payload['reply_markup']['inline_keyboard']), 1)
         self.assertNotIn('keyboard', payload['reply_markup'])
 
     def test_callback_edits_existing_card_not_a_new_message(self):
