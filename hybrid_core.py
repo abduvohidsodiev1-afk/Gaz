@@ -70,6 +70,9 @@ def apply(messages, hints=None):
     elif is_question and (ids or re.search(r'propan|narx',norm)):
         status_question=bool(re.search(r'ochiqmi|yopiqmi|ishlayaptimi|ishlaydimi|ochiq yoki yopiq',norm))
         result.update(intent='status_question' if status_question else 'price_question',needs_review=sid is None)
+    elif target is not None and sid and raw_price is not None:
+        # An explicit, unique Reply/mention binding is stronger evidence than an AI guess.
+        result.update(intent='price_report',price_uzs=raw_price,status=status,reply_to=target)
     elif sid and hints.get('intent') in ('price_question','status_question'):
         result['intent']=hints['intent']
     elif model_used and (raw_price is not None or status is not None) and hints.get('intent') not in ('price_report','status_report'):
