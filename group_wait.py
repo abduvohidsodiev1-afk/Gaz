@@ -5,6 +5,7 @@ import time
 import catalog
 import conversation
 import station_directory
+import question_intent
 
 WAIT_SECONDS = 60
 
@@ -70,6 +71,8 @@ def utf16_slice(text, start, length):
 
 def parse_answer(message):
     text = message.get('text', '')
+    if question_intent.is_question(text):
+        return None
     # Remove Telegram mentions using UTF-16 offsets (emoji before a mention is valid).
     entities = sorted(message.get('entities', []), key=lambda e: e.get('offset', 0), reverse=True)
     raw = text.encode('utf-16-le')

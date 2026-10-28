@@ -1,9 +1,12 @@
 """Extract one plausible integer price; caller must establish the station/context."""
 import re
 import catalog
+import question_intent
 
 
 def amount(text):
+    if question_intent.is_question(text):
+        return None
     norm = catalog.normalize(text)
     if re.search(r'\?|\b(?:qancha|kancha|nechi|necha|emas|eski|oldingi|taxminan)\b', norm):
         return None

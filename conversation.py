@@ -6,6 +6,7 @@ import catalog
 import provenance
 import station_names
 import price_parse
+import question_intent
 
 UZ = timezone(timedelta(hours=5))
 
@@ -182,6 +183,8 @@ def observe(db, message):
         return 'Бу мулоқот хабари аввал ўқилган.'
     text = message.get('text', message.get('caption', '')).strip()
     context = proposal(text) or place_caption(text)
+    if context is not None and question_intent.is_question(text):
+        context['question'] = True
     if context is None:
         bare_price = price_parse.amount(text)
         if bare_price is not None:
