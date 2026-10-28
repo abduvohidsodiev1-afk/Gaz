@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import json
 import propanbot
 import conversation
@@ -7,6 +7,9 @@ import conversation
 
 class GroupAnswerTests(unittest.TestCase):
     def setUp(self):
+        self.delay_patch = patch('group_wait.WAIT_SECONDS', 0)
+        self.delay_patch.start()
+        self.addCleanup(self.delay_patch.stop)
         self.db = propanbot.connect_db(':memory:')
         self.addCleanup(self.db.close)
         self.api = Mock()

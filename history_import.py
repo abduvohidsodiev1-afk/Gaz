@@ -4,6 +4,7 @@ from pathlib import Path
 import conversation
 import ingestion
 import station_directory
+import group_wait
 
 LIMIT = 1000
 
@@ -28,6 +29,7 @@ def remember(db, message):
 def replay(db):
     messages = [json.loads(row[0]) for row in db.execute('SELECT body FROM source_history ORDER BY event_time,message_id')]
     for message in messages:
+        group_wait.learn_history(db, message)
         station_directory.observe(db, message)
         result = 'Шохобча ноаниқ' if station_directory.ambiguous(message) else conversation.observe(db, message)
         if result is None:
@@ -69,6 +71,9 @@ def read_export(path, expected_chat_id, own_bot_id=None):
             message = {'message_id': mid, 'date': stamp, 'text': flatten(item.get('text', '')),
                        'chat': {'id': expected_chat_id, 'type': 'supergroup', 'username': ingestion.SOURCE_USERNAME}}
             message['from'] = {'first_name': item.get('from', '')}
+            actor = item.get('from_id', '')
+            if isinstance(actor, str) and actor.startswith('user') and actor[4:].isdigit():
+                message['from']['id'] = int(actor[4:])
             if item.get('forwarded_from'):
                 message['forward_origin'] = {'type': 'hidden_user', 'sender_user_name': str(item['forwarded_from']), 'date': stamp}
             if 'reply_to_message_id' in item:

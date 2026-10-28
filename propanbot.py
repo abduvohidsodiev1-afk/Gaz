@@ -16,6 +16,7 @@ import conversation
 import group_answers
 import history_import
 import station_directory
+import group_wait
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
@@ -51,6 +52,7 @@ def connect_db(path):
     group_answers.initialize(db)
     history_import.initialize(db)
     station_directory.initialize(db)
+    group_wait.initialize(db)
     db.commit()
     return db
 
@@ -87,6 +89,7 @@ def handle_message(api, db, message):
                    and message.get('chat', {}).get('username', '').casefold() == ingestion.SOURCE_USERNAME)
         if trusted:
             history_import.remember(db, message)
+            group_wait.accept(db, message)
             station_directory.observe(db, message)
             result = 'Шохобча ноаниқ' if station_directory.ambiguous(message) else conversation.observe(db, message)
             if result is None:
@@ -170,7 +173,7 @@ def run(base):
             print('PropanBot ishlayapti. To‘xtatish: STOP.bat yoki Ctrl+C.', flush=True)
             while not stopped.is_set() and not stop_path.exists():
                 try:
-                    updates = api.call('getUpdates', {'offset': offset(db), 'timeout': 20, 'allowed_updates': ['message', 'callback_query']})
+                    updates = api.call('getUpdates', {'offset': offset(db), 'timeout': group_wait.poll_timeout(db), 'allowed_updates': ['message', 'callback_query']})
                     for update in updates:
                         if stopped.is_set() or stop_path.exists():
                             break
@@ -180,6 +183,7 @@ def run(base):
                             message = update.get('message', {})
                             handle_message(api, db, message)
                         save_offset(db, update['update_id'] + 1)
+                    group_wait.tick(api, db)
                 except RuntimeError:
                     print('Telegram bilan aloqa xatosi. 5 soniyadan keyin qayta uriniladi.', flush=True)
                     stopped.wait(5)

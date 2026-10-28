@@ -5,6 +5,7 @@ import catalog
 import conversation
 import station_names
 import station_directory
+import group_wait
 
 BOT = 'gazpropan_uz_bot'
 
@@ -62,7 +63,7 @@ def answer(db, message):
         return None
     command = first.split('@')[0]
     commands = {'/prices': 'prices', '/stations': 'stations', '/masters': 'masters'}
-    question = bool(re.search(r'\?|\b(?:qancha|nechi|necha|qayerda|qaerda|qatta|bormi|kimda|kerak|biladimi|aytvor|ayting)\b', norm))
+    question = bool(re.search(r'\?|\b(?:qancha|kancha|nechi|necha|qayerda|qaerda|qatta|bormi|kimda|kerak|biladimi|aytvor|ayting)\b', norm))
     if command == '/names':
         aliases = conversation.known_aliases(db)
         names = sorted(set(aliases.values()))
@@ -76,7 +77,7 @@ def answer(db, message):
         history = db.execute('SELECT count(*) FROM source_history').fetchone()[0]
         prices = db.execute('SELECT count(*) FROM area_prices').fetchone()[0]
         masters = db.execute("SELECT count(*) FROM catalog WHERE kind='masters'").fetchone()[0]
-        return f'Версия: price-labels. Маҳаллий тарих: {history}/1000 хабар. Ҳудуд нархлари: {prices}. Усталар: {masters}. Аввалги Telegram тарихи фақат JSON импорт қилингач кўринади.'
+        return f'Версия: wait-60. Маҳаллий тарих: {history}/1000 хабар. Ҳудуд нархлари: {prices}. Усталар: {masters}. Аввалги Telegram тарихи фақат JSON импорт қилингач кўринади.'
     if command in ('/start', '/help'):
         return 'Саволни шу гуруҳга ёзинг: «Чоштепада пропан қанча?», «Қибрайда шохобча қаерда?» ёки «Тошкентда уста телефони борми?». Буйруқлар: /prices, /stations, /masters. Жавобни шу ерда бераман.'
     kind = commands.get(command)
@@ -123,11 +124,13 @@ def answer(db, message):
     return ('Базадаги охирги маълумот:\n\n' + '\n\n'.join(replies[:3]))[:3800]
 
 
-def respond(api, db, message):
+def respond(api, db, message, force=False):
     chat_id, mid = message['chat']['id'], message.get('message_id')
     if not isinstance(mid, int):
         return
     if db.execute('SELECT 1 FROM group_answers WHERE chat_id=? AND message_id=?', (chat_id, mid)).fetchone():
+        return
+    if not force and group_wait.queue(db, message) and group_wait.WAIT_SECONDS > 0:
         return
     card = station_directory.reply(db, message)
     if card is None:

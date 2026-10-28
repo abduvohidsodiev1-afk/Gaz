@@ -137,7 +137,7 @@ def proposal(text):
     if not match or not 500 <= int(match[2]) <= 100000:
         return None
     place = re.sub(r'\s+', ' ', match[1]).strip()
-    if any(w in place.split() for w in ('mashina', 'balon', 'sotiladi', 'telefon', 'usta', 'narx', 'qancha', 'ishga', 'tushmadi', 'ishlamayapti', 'emas', 'yoq')):
+    if any(w in place.split() for w in ('mashina', 'balon', 'sotiladi', 'telefon', 'usta', 'narx', 'qancha', 'kancha', 'ishga', 'tushmadi', 'ishlamayapti', 'emas', 'yoq')):
         return None
     if landmark_place(place) == 'ambiguous-bridge':
         return None

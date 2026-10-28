@@ -87,7 +87,7 @@ def find(text):
 
 def is_question(text):
     norm = catalog.normalize(text).replace('ы', 'i')
-    return bool(re.search(r'\?|\b(?:qancha|nechi|necha|qayerda|qaerda|bormi|kerak|ochiqmi|yopiqmi|ishlayaptimi|ishlaydimi|otkrit|zakrit)\b', norm))
+    return bool(re.search(r'\?|\b(?:qancha|kancha|nechi|necha|qayerda|qaerda|bormi|kerak|ochiqmi|yopiqmi|ishlayaptimi|ishlaydimi|otkrit|zakrit)\b', norm))
 
 
 def ambiguous(message):
@@ -198,6 +198,9 @@ def reply(db, message):
     if first not in ('/prices', '/stations', '/status') and not is_question(text):
         return None
     matches = find(text)
+    if not matches and re.search(r'\b(?:qancha|kancha)\b', catalog.normalize(text)):
+        parent = message.get('reply_to_message') or {}
+        matches = find(parent.get('text', parent.get('caption', '')))
     if len(matches) == 1:
         return detail(db, matches[0])
     if matches:
