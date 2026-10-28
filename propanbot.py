@@ -13,6 +13,7 @@ import urllib.request
 import catalog
 import ingestion
 import conversation
+import group_answers
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
@@ -45,6 +46,7 @@ def connect_db(path):
     catalog.initialize(db)
     ingestion.initialize(db)
     conversation.initialize(db)
+    group_answers.initialize(db)
     db.commit()
     return db
 
@@ -65,6 +67,8 @@ def reply_text(text):
 
 
 def handle_message(api, db, message):
+    if message.get('from', {}).get('is_bot'):
+        return
     private = message.get('chat', {}).get('type') == 'private'
     chat_id = message.get('chat', {}).get('id')
     user_id = message.get('from', {}).get('id')
@@ -84,7 +88,9 @@ def handle_message(api, db, message):
         else:
             result = None
         if not private:
-            return  # Read configured group sources quietly; do not post to groups.
+            if trusted:
+                group_answers.respond(api, db, message)
+            return
         if result:
             replies = [result]
         elif 'text' in message or 'location' in message:

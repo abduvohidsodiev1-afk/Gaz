@@ -1,0 +1,72 @@
+import unittest
+from unittest.mock import Mock
+import json
+import propanbot
+import conversation
+
+
+class GroupAnswerTests(unittest.TestCase):
+    def setUp(self):
+        self.db = propanbot.connect_db(':memory:')
+        self.addCleanup(self.db.close)
+        self.api = Mock()
+        conversation.observe(self.db, self.msg(1, 'Choshtepa 8500 dan'))
+
+    def msg(self, mid, text, username='propan_uzbekistan_2026'):
+        return {'chat': {'id': -1, 'type': 'supergroup', 'username': username},
+                'from': {'id': 22}, 'message_id': mid, 'date': 1793100000 + mid, 'text': text}
+
+    def test_natural_question_reply_is_sent_in_same_group(self):
+        message = self.msg(2, 'Чоштепада пропан қанча?')
+        message['message_thread_id'] = 99
+        propanbot.handle_message(self.api, self.db, message)
+        method, payload = self.api.call.call_args.args
+        self.assertEqual(method, 'sendMessage')
+        self.assertEqual(payload['chat_id'], -1)
+        self.assertEqual(payload['reply_parameters']['message_id'], 2)
+        self.assertEqual(payload['message_thread_id'], 99)
+        self.assertIn('8,500', payload['text'])
+        self.assertNotIn('reply_markup', payload)
+
+    def test_price_question_reply_uses_parent_location(self):
+        photo = self.msg(3, '')
+        photo['caption'] = 'Кибрай ИБР очеред кам'
+        del photo['text']
+        propanbot.handle_message(self.api, self.db, photo)
+        question = self.msg(4, 'Нечи пул пропан ака?')
+        question['reply_to_message'] = photo
+        propanbot.handle_message(self.api, self.db, question)
+        self.assertIn('топилмади', self.api.call.call_args.args[1]['text'])
+
+    def test_question_not_answered_twice(self):
+        message = self.msg(2, '/prices Choshtepa')
+        propanbot.handle_message(self.api, self.db, message)
+        propanbot.handle_message(self.api, self.db, message)
+        self.assertEqual(self.api.call.call_count, 1)
+
+    def test_unrelated_and_other_group_and_bot_messages_ignored(self):
+        for message in [self.msg(2, 'Ассалому алайкум'), self.msg(3, '/prices Choshtepa', 'other_group')]:
+            propanbot.handle_message(self.api, self.db, message)
+        bot = self.msg(4, '/prices Choshtepa')
+        bot['from']['is_bot'] = True
+        propanbot.handle_message(self.api, self.db, bot)
+        self.api.call.assert_not_called()
+
+    def test_no_address_invented_from_price_report(self):
+        propanbot.handle_message(self.api, self.db, self.msg(5, 'Чоштепада шохобча қаерда?'))
+        self.assertIn('аниқ манзили ҳали базада йўқ', self.api.call.call_args.args[1]['text'])
+
+    def test_master_phone_is_returned_in_group(self):
+        item = {'id': 'test', 'name': 'Test workshop', 'region': 'Toshkent', 'address': 'Test address', 'phone': 'TEST-PHONE', 'specialty': 'Test service'}
+        with self.db:
+            self.db.execute('INSERT INTO catalog VALUES (?, ?, ?)', ('masters', 'test', json.dumps(item)))
+        propanbot.handle_message(self.api, self.db, self.msg(6, 'Тошкентда уста телефони борми?'))
+        self.assertIn('TEST-PHONE', self.api.call.call_args.args[1]['text'])
+
+    def test_missing_location_asks_in_same_chat(self):
+        propanbot.handle_message(self.api, self.db, self.msg(7, 'Пропан қанча?'))
+        self.assertIn('Қайси шаҳар', self.api.call.call_args.args[1]['text'])
+
+    def test_command_for_another_bot_is_ignored(self):
+        propanbot.handle_message(self.api, self.db, self.msg(8, '/prices@other_bot Choshtepa'))
+        self.api.call.assert_not_called()
