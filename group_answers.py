@@ -17,6 +17,9 @@ def words(text):
 
 
 def place_in_text(db, text, kind):
+    landmark = conversation.landmark_place(text)
+    if landmark:
+        return landmark
     tokens = words(text)
     # Match stored names/regions, allowing Uzbek location endings.
     places = [json.loads(r[0])['place'] for r in db.execute('SELECT body FROM area_prices')]
@@ -79,11 +82,15 @@ def answer(db, message):
             query = parent['place']
     if not query:
         return 'Қайси шаҳар, туман ёки шохобча ҳақида сўраяпсиз? Номини саволга қўшиб ёзинг — шу ерда жавоб бераман.'
+    landmark = conversation.landmark_place(query)
+    if query == 'ambiguous-bridge' or landmark == 'ambiguous-bridge':
+        return 'Сассу / Сассиқ кўприкда қайси шохобча: кўприкка етмасдан 8-заправками, кўприкдан кейин 9-заправками ёки 9-заправканинг рўпарасидаги Кофе / Қизил заправками?'
+    query = conversation.canonical_place(query)
     if kind == 'stations':
         # A locality price report must not be presented as a station address.
         rows = [json.loads(r[0]) for r in db.execute("SELECT body FROM catalog WHERE kind='stations'")]
         found = any(catalog.normalize(query) in catalog.normalize(' '.join(r[k] for k in ('name', 'region', 'address'))) for r in rows)
-        replies = catalog.directory(db, kind, query) if found else ['Бу жой бўйича шохобчанинг аниқ манзили ҳали базада йўқ.']
+        replies = catalog.directory(db, kind, query) if found else [conversation.LANDMARK_DESCRIPTIONS.get(query, 'Бу жой бўйича шохобчанинг аниқ манзили ҳали базада йўқ.')]
     else:
         replies = catalog.directory(db, kind, query)
     return ('Базадаги охирги маълумот:\n\n' + '\n\n'.join(replies[:3]))[:3800]

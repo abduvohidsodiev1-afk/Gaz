@@ -17,8 +17,46 @@ PLACE_ALIASES = {
 }
 
 
+LANDMARK_DESCRIPTIONS = {
+    '8 zapravka': '8-заправка — Сассу (Сассиқ) кўприкка етмасдан.',
+    '9 zapravka': '9-заправка — Сассу (Сассиқ) кўприкдан кейин.',
+    'kofe zapravka': 'Кофе / Қизил заправка — Сассу кўприкдан кейинги 9-заправканинг рўпарасида.',
+}
+PLACE_ALIASES.update({
+    '8 zapravka': '8 zapravka', '8-zapravka': '8 zapravka',
+    '9 zapravka': '9 zapravka', '9-zapravka': '9 zapravka',
+    'kofe zapravka': 'kofe zapravka', 'qizil zapravka': 'kofe zapravka',
+})
+for landmark in ('sassu most', 'sassiq most', 'sassu koprik', 'sassiq koprik'):
+    for suffix in ('ga etmasdan', 'ka etmasdan'):
+        PLACE_ALIASES[landmark + suffix] = '8 zapravka'
+    for suffix in ('dan keyin', 'adan keyin'):
+        PLACE_ALIASES[landmark + suffix] = '9 zapravka'
+
+
+def landmark_place(text):
+    norm = catalog.normalize(text)
+    bridge = re.search(r'\b(?:sassu|sassiq)\s+(?:most|koprik)(?:ga|ka|dan|adan|da)?\b', norm)
+    opposite = re.search(r'\b(?:togrisida(?:gi)?|togrisidagi|roparasida(?:gi)?)\b', norm)
+    if re.search(r'\b(?:kofe|qizil)\s+zapravka', norm) or (opposite and re.search(r'\b9[ -]*(?:zapravka|shoxobcha)', norm)):
+        return 'kofe zapravka'
+    if bridge:
+        if 'etmasdan' in norm:
+            return '8 zapravka'
+        if 'keyin' in norm:
+            return '9 zapravka'
+        return 'ambiguous-bridge'
+    for number in ('8', '9'):
+        if re.search(r'\b' + number + r'[ -]*(?:zapravka|shoxobcha)', norm):
+            return number + ' zapravka'
+    return ''
+
+
 def canonical_place(text):
     normalized = re.sub(r'\s+', ' ', catalog.normalize(text)).strip()
+    landmark = landmark_place(normalized)
+    if landmark and landmark != 'ambiguous-bridge':
+        return landmark
     return PLACE_ALIASES.get(normalized, normalized)
 
 
@@ -43,11 +81,13 @@ def initialize(db):
 
 def proposal(text):
     norm = catalog.normalize(text).strip()
-    match = re.fullmatch(r'([a-z][a-z\s\-ʻ’\x27]{2,70}?)\s+(?:(?:ishga\s+tushdi|ochildi|ishlayapti)\s+)?(\d{4,5})\s*(danmi|dan|s[ou]m(?:dan)?(?:mi)?)\s*([?!.]*)', norm)
+    match = re.fullmatch(r'([a-z0-9][a-z0-9\s\-ʻ’\x27]{2,70}?)\s+(?:(?:ishga\s+tushdi|ochildi|ishlayapti)\s+)?(\d{4,5})\s*(danmi|dan|s[ou]m(?:dan)?(?:mi)?)\s*([?!.]*)', norm)
     if not match or not 500 <= int(match[2]) <= 100000:
         return None
     place = re.sub(r'\s+', ' ', match[1]).strip()
     if any(w in place.split() for w in ('mashina', 'balon', 'sotiladi', 'telefon', 'usta', 'narx', 'qancha', 'ishga', 'tushmadi', 'ishlamayapti', 'emas', 'yoq')):
+        return None
+    if landmark_place(place) == 'ambiguous-bridge':
         return None
     return {'place': canonical_place(place), 'price': int(match[2]), 'question': 'mi' in match[3] or '?' in match[4]}
 
@@ -156,5 +196,6 @@ def listings(db, query=''):
     results = []
     for r in rows[:10]:
         label = 'Қуйилган сана' if r['explicit_date'] else 'Хабар санаси (қуйилган сана аниқ эмас)'
-        results.append(f"📍 {r['place'].title()} — {r['price']:,} сўм / литр\n{label}: {r['updated']}\nМанба: @propan_uzbekistan_2026 иштирокчилари.\nАниқ шохобча ва манзил кўрсатилмаган. Нарх боришдан олдин текширилсин.")
+        landmark = LANDMARK_DESCRIPTIONS.get(r['place'], '')
+        results.append(f"{landmark + chr(10) if landmark else ''}📍 {r['place'].title()} — {r['price']:,} сўм / литр\n{label}: {r['updated']}\nМанба: @propan_uzbekistan_2026 иштирокчилари.\nАниқ шохобча ва манзил кўрсатилмаган. Нарх боришдан олдин текширилсин.")
     return results
