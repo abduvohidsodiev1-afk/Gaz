@@ -40,6 +40,27 @@ class QuestionIntentTests(unittest.TestCase):
         labels = [b['text'] for row in api.call.call_args.args[1]['reply_markup']['inline_keyboard'] for b in row]
         self.assertEqual(labels, ['💰 Narx manbasi', '🟢 Holat manbasi', '📍 Mo‘ljal'])
 
+    def test_qnaqa_screenshot_with_one_missing_letter_is_answered(self):
+        api = Mock()
+        propanbot.handle_message(api, self.db, self.message(1, 'Майорский 8200', 900))
+        with patch('group_wait.time.time', return_value=1000):
+            propanbot.handle_message(api, self.db, self.message(2, 'mayorskida narx qnaqa'))
+        api.call.assert_not_called()
+        group_wait.tick(api, self.db, now=1029)
+        api.call.assert_not_called()
+        group_wait.tick(api, self.db, now=1030)
+        payload = api.call.call_args.args[1]
+        self.assertIn('8 200', payload['text'])
+        self.assertIn('Mayorskiy', payload['text'])
+        self.assertNotRegex(payload['text'], r'[А-Яа-яЎўҚқҒғҲҳ]')
+
+    def test_common_missing_letters_and_transpositions_in_question_words(self):
+        for word in ['qnaqa', 'қнақа', 'qnacha', 'qacha', 'qnday', 'aytvorla']:
+            self.assertTrue(question_intent.is_question('mayorskiy narx ' + word), word)
+            self.assertIsNone(price_parse.amount('mayorskiy 8200 ' + word), word)
+        for word in ['narx', 'narxi', 'som', 'sum', 'dan', 'ishlayapti', 'ochiq', 'yopiq']:
+            self.assertFalse(question_intent.is_question('mayorskiy 8200 ' + word), word)
+
     def test_question_with_a_number_is_not_learned_as_a_price(self):
         message = self.message(1, 'Майорский 8200 нарх қанақа')
         station_directory.observe(self.db, message)
