@@ -3,6 +3,8 @@ import json
 import re
 import catalog
 import conversation
+import station_names
+import station_directory
 
 BOT = 'gazpropan_uz_bot'
 
@@ -38,7 +40,16 @@ def place_in_text(db, text, kind):
             segment = tokens[start:start + len(wanted)]
             if segment[:-1] == wanted[:-1] and segment[-1] in (wanted[-1], wanted[-1] + 'da', wanted[-1] + 'dan', wanted[-1] + 'dagi'):
                 matches.append(canonical)
-    return conversation.canonical_place(max(matches, key=len)) if matches else ''
+    if matches:
+        unique = {conversation.canonical_place(name) for name in matches}
+        if len(unique) == 1:
+            return next(iter(unique))
+        return 'ambiguous-station|' + '|'.join(sorted(unique))
+    aliases = conversation.known_aliases(db)
+    for name in places:
+        aliases[name] = conversation.canonical_place(name)
+    name, choices = station_names.find_in_text(text, aliases)
+    return name or ('ambiguous-station|' + '|'.join(choices) if choices else '')
 
 
 def answer(db, message):
@@ -52,11 +63,20 @@ def answer(db, message):
     command = first.split('@')[0]
     commands = {'/prices': 'prices', '/stations': 'stations', '/masters': 'masters'}
     question = bool(re.search(r'\?|\b(?:qancha|nechi|necha|qayerda|qaerda|qatta|bormi|kimda|kerak|biladimi|aytvor|ayting)\b', norm))
+    if command == '/names':
+        aliases = conversation.known_aliases(db)
+        names = sorted(set(aliases.values()))
+        lines = ['Маълум шохобча номлари: ' + str(len(names))]
+        for name in names[:30]:
+            variants = [a for a, c in aliases.items() if c == name and a != name]
+            lines.append(name + (': ' + ', '.join(variants[:5]) if variants else ''))
+        lines.append('Ҳақиқий номлар тарихдан қабул қилинган сари рўйхат кенгаяди; янги шохобча номлари ўйлаб қўшилмайди.')
+        return '\n'.join(lines)[:3800]
     if command == '/status':
         history = db.execute('SELECT count(*) FROM source_history').fetchone()[0]
         prices = db.execute('SELECT count(*) FROM area_prices').fetchone()[0]
         masters = db.execute("SELECT count(*) FROM catalog WHERE kind='masters'").fetchone()[0]
-        return f'Версия: history-1000. Маҳаллий тарих: {history}/1000 хабар. Ҳудуд нархлари: {prices}. Усталар: {masters}. Аввалги Telegram тарихи фақат JSON импорт қилингач кўринади.'
+        return f'Версия: menu-28. Маҳаллий тарих: {history}/1000 хабар. Ҳудуд нархлари: {prices}. Усталар: {masters}. Аввалги Telegram тарихи фақат JSON импорт қилингач кўринади.'
     if command in ('/start', '/help'):
         return 'Саволни шу гуруҳга ёзинг: «Чоштепада пропан қанча?», «Қибрайда шохобча қаерда?» ёки «Тошкентда уста телефони борми?». Буйруқлар: /prices, /stations, /masters. Жавобни шу ерда бераман.'
     kind = commands.get(command)
@@ -87,6 +107,8 @@ def answer(db, message):
             query = parent['place']
     if not query:
         return 'Қайси шаҳар, туман ёки шохобча ҳақида сўраяпсиз? Номини саволга қўшиб ёзинг — шу ерда жавоб бераман.'
+    if query.startswith('ambiguous-station|'):
+        return 'Қайси шохобчани назарда тутдингиз: ' + ', '.join(query.split('|')[1:]) + '?'
     landmark = conversation.landmark_place(query)
     if query == 'ambiguous-bridge' or landmark == 'ambiguous-bridge':
         return 'Сассу / Сассиқ кўприкда қайси шохобча: кўприкка етмасдан 8-заправками, кўприкдан кейин 9-заправками ёки 9-заправканинг рўпарасидаги Кофе / Қизил заправками?'
@@ -107,10 +129,13 @@ def respond(api, db, message):
         return
     if db.execute('SELECT 1 FROM group_answers WHERE chat_id=? AND message_id=?', (chat_id, mid)).fetchone():
         return
-    text = answer(db, message)
-    if text is None:
-        return
-    payload = {'chat_id': chat_id, 'text': text,
+    card = station_directory.reply(db, message)
+    if card is None:
+        text = answer(db, message)
+        if text is None:
+            return
+        card = {'text': text}
+    payload = {'chat_id': chat_id, **card,
                'reply_parameters': {'message_id': mid}, 'link_preview_options': {'is_disabled': True}}
     if 'message_thread_id' in message:
         payload['message_thread_id'] = message['message_thread_id']

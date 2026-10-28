@@ -4,6 +4,7 @@ import json
 import re
 import catalog
 import provenance
+import station_names
 
 UZ = timezone(timedelta(hours=5))
 
@@ -27,6 +28,7 @@ PLACE_ALIASES.update({
     '8 zapravka': '8 zapravka', '8-zapravka': '8 zapravka',
     '9 zapravka': '9 zapravka', '9-zapravka': '9 zapravka',
     'kofe zapravka': 'kofe zapravka', 'qizil zapravka': 'kofe zapravka',
+    'mayorskiy': 'mayorskiy', 'mayorski': 'mayorskiy', 'mayorskiy zapravka': 'mayorskiy',
 })
 for landmark in ('sassu most', 'sassiq most', 'sassu koprik', 'sassiq koprik'):
     for suffix in ('ga etmasdan', 'ka etmasdan'):
@@ -36,17 +38,26 @@ for landmark in ('sassu most', 'sassiq most', 'sassu koprik', 'sassiq koprik'):
 
 
 def landmark_place(text):
-    norm = catalog.normalize(text)
-    bridge = re.search(r'\b(?:sassu|sassiq)\s+(?:most|koprik)(?:ga|ka|dan|adan|da)?\b', norm)
-    opposite = re.search(r'\b(?:togrisida(?:gi)?|togrisidagi|roparasida(?:gi)?)\b', norm)
-    if re.search(r'\b(?:kofe|qizil)\s+zapravka', norm) or (opposite and re.search(r'\b9[ -]*(?:zapravka|shoxobcha)', norm)):
+    raw = station_names.folded(text)
+    norm = raw.replace('kupru', 'kuprik')
+    bridge = re.search(r'\b(?:sassu|sassik)\s+(?:must|kuprik)(?:ga|ka|dan|adan|da)?\b', norm)
+    opposite = re.search(r'\b(?:tugrisida(?:gi)?|tugrisidagi|ruparasida(?:gi)?)\b', norm)
+    if re.search(r'\b(?:kufe|kizil)\s+zapravka', norm) or (opposite and re.search(r'\b9[ -]*(?:zapravka|shoxobcha)', norm)):
         return 'kofe zapravka'
+    explicit = re.findall(r'\b([89])[ -]*(?:zapravka|shuxubcha)', norm)
+    if len(set(explicit)) == 1:
+        return explicit[0] + ' zapravka'
     if bridge:
         if 'etmasdan' in norm:
             return '8 zapravka'
         if 'keyin' in norm:
             return '9 zapravka'
-        return 'ambiguous-bridge'
+        # Latest owner mapping distinguishes unqualified names; this shared form stays ambiguous.
+        if re.search(r'\bsassik\s+kupru(?:da|dan|ga)?\b', raw):
+            return 'ambiguous-bridge'
+        if re.search(r'\bsassu\s+kuprik', norm):
+            return '8 zapravka'
+        return '9 zapravka'
     for number in ('8', '9'):
         if re.search(r'\b' + number + r'[ -]*(?:zapravka|shoxobcha)', norm):
             return number + ' zapravka'
@@ -58,10 +69,14 @@ def canonical_place(text):
     landmark = landmark_place(normalized)
     if landmark and landmark != 'ambiguous-bridge':
         return landmark
-    return PLACE_ALIASES.get(normalized, normalized)
+    if normalized in PLACE_ALIASES:
+        return PLACE_ALIASES[normalized]
+    matched, _ = station_names.resolve(normalized, PLACE_ALIASES)
+    return matched or normalized
 
 
 def initialize(db):
+    db.execute('CREATE TABLE IF NOT EXISTS station_aliases (alias TEXT PRIMARY KEY, canonical TEXT NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS area_prices (place TEXT PRIMARY KEY, body TEXT NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS price_context (chat_id INTEGER, message_id INTEGER, body TEXT NOT NULL, PRIMARY KEY(chat_id,message_id))')
     # Consolidate previously saved exact aliases, retaining the newest observation.
@@ -80,6 +95,24 @@ def initialize(db):
     db.commit()
 
 
+def known_aliases(db):
+    aliases = dict(PLACE_ALIASES)
+    for row in db.execute('SELECT place FROM area_prices'):
+        aliases[row[0]] = row[0]
+    names = [json.loads(row[0])['name'] for row in db.execute("SELECT body FROM catalog WHERE kind='stations'")]
+    for name in names:
+        if names.count(name) == 1:
+            aliases[name] = canonical_place(name)
+    for alias, canonical in db.execute('SELECT alias, canonical FROM station_aliases'):
+        aliases[alias] = canonical
+    return aliases
+
+
+def resolve_known(db, name):
+    matched, choices = station_names.resolve(name, known_aliases(db))
+    return matched or name, choices
+
+
 def proposal(text):
     norm = catalog.normalize(text).strip()
     match = re.fullmatch(r'([a-z0-9][a-z0-9\s\-ʻ’\x27]{2,70}?)\s+(?:(?:ishga\s+tushdi|ochildi|ishlayapti)\s+)?(\d{4,5})\s*(danmi|dan|s[ou]m(?:dan)?(?:mi)?)\s*([?!.]*)', norm)
@@ -90,7 +123,7 @@ def proposal(text):
         return None
     if landmark_place(place) == 'ambiguous-bridge':
         return None
-    return {'place': canonical_place(place), 'price': int(match[2]), 'question': 'mi' in match[3] or '?' in match[4]}
+    return {'place': canonical_place(place), '_raw_place': place, 'price': int(match[2]), 'question': 'mi' in match[3] or '?' in match[4]}
 
 
 def place_caption(text):
@@ -169,9 +202,16 @@ def observe(db, message):
             explicit_date = True
     if not context:
         return None
+    resolved, choices = resolve_known(db, context['place'])
+    if choices:
+        return 'Шохобча номи бир нечта жойга ўхшайди. Нарх янгиланмади.'
+    original_place = context.get('_raw_place', context['place'])
+    context['place'] = resolved
     if apply and not explicit_date:
         context['_price_source'] = provenance.capture(message)
     with db:
+        if original_place != resolved:
+            db.execute('INSERT INTO station_aliases VALUES (?, ?) ON CONFLICT(alias) DO UPDATE SET canonical=excluded.canonical', (original_place, resolved))
         db.execute('INSERT INTO price_context VALUES (?, ?, ?)', (chat, mid, json.dumps(context)))
         # Keep a bounded reply window; old price rows themselves remain persistent.
         db.execute('DELETE FROM price_context WHERE rowid IN (SELECT rowid FROM price_context ORDER BY rowid DESC LIMIT -1 OFFSET 5000)')
@@ -194,6 +234,10 @@ def observe(db, message):
 
 def listings(db, query=''):
     query = canonical_place(query)
+    if query:
+        query, choices = resolve_known(db, query)
+        if choices:
+            return ['Қайси шохобча: ' + ', '.join(choices) + '?']
     rows = [json.loads(r[0]) for r in db.execute('SELECT body FROM area_prices ORDER BY place')]
     rows = [r for r in rows if query in catalog.normalize(r['place'])]
     results = []

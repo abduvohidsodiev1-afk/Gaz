@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import conversation
 import ingestion
+import station_directory
 
 LIMIT = 1000
 
@@ -27,7 +28,8 @@ def remember(db, message):
 def replay(db):
     messages = [json.loads(row[0]) for row in db.execute('SELECT body FROM source_history ORDER BY event_time,message_id')]
     for message in messages:
-        result = conversation.observe(db, message)
+        station_directory.observe(db, message)
+        result = 'Шохобча ноаниқ' if station_directory.ambiguous(message) else conversation.observe(db, message)
         if result is None:
             ingestion.ingest(db, message)
     return len(messages)

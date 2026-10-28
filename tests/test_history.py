@@ -26,8 +26,8 @@ class HistoryTests(unittest.TestCase):
 
     def test_last_1000_and_latest_price_win_regardless_of_export_order(self):
         messages = [self.msg(i, 'Ассалому алайкум') for i in range(1, 1005)]
-        messages[0]['text'] = 'IBR 9000дан'
-        messages[500]['text'] = 'IBR 8300дан'
+        messages[0]['text'] = 'Yangi Uzbekistan 9000дан'
+        messages[500]['text'] = 'Yangi Uzbekistan 8300дан'
         messages[1003]['text'] = 'Янги Узбекистан ишга тушди 8400сум'
         self.export(list(reversed(messages)))
         result = history_import.import_file(self.db, self.path, self.chat)
@@ -46,13 +46,13 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(self.db.execute('SELECT count(*) FROM group_answers').fetchone()[0], 0)
 
     def test_wrong_group_is_rejected_before_writing(self):
-        self.export([self.msg(1, 'IBR 8500dan')], group_id=999)
+        self.export([self.msg(1, 'Yangi Uzbekistan 8500dan')], group_id=999)
         with self.assertRaises(ValueError):
             history_import.import_file(self.db, self.path, self.chat)
         self.assertEqual(self.db.execute('SELECT count(*) FROM source_history').fetchone()[0], 0)
 
     def test_repeat_import_and_replay_are_idempotent(self):
-        self.export([self.msg(1, 'IBR 8500dan')])
+        self.export([self.msg(1, 'Yangi Uzbekistan 8500dan')])
         history_import.import_file(self.db, self.path, self.chat)
         history_import.import_file(self.db, self.path, self.chat)
         history_import.replay(self.db)
@@ -60,9 +60,9 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(self.db.execute('SELECT count(*) FROM price_context').fetchone()[0], 1)
 
     def test_own_bot_export_messages_are_excluded(self):
-        own = self.msg(2, 'IBR 9500dan')
+        own = self.msg(2, 'Yangi Uzbekistan 9500dan')
         own['from_id'] = 'user123'
-        self.export([self.msg(1, 'IBR 8500dan'), own])
+        self.export([self.msg(1, 'Yangi Uzbekistan 8500dan'), own])
         result = history_import.import_file(self.db, self.path, self.chat, own_bot_id=123)
         self.assertEqual(result['messages'], 1)
 

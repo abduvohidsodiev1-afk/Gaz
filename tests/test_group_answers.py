@@ -25,8 +25,9 @@ class GroupAnswerTests(unittest.TestCase):
         self.assertEqual(payload['chat_id'], -1)
         self.assertEqual(payload['reply_parameters']['message_id'], 2)
         self.assertEqual(payload['message_thread_id'], 99)
-        self.assertIn('8,500', payload['text'])
-        self.assertNotIn('reply_markup', payload)
+        self.assertIn('8 500', payload['text'])
+        self.assertIn('inline_keyboard', payload['reply_markup'])
+        self.assertNotIn('keyboard', payload['reply_markup'])
 
     def test_price_question_reply_uses_parent_location(self):
         photo = self.msg(3, '')
@@ -54,7 +55,8 @@ class GroupAnswerTests(unittest.TestCase):
 
     def test_no_address_invented_from_price_report(self):
         propanbot.handle_message(self.api, self.db, self.msg(5, 'Чоштепада шохобча қаерда?'))
-        self.assertIn('аниқ манзили ҳали базада йўқ', self.api.call.call_args.args[1]['text'])
+        self.assertIn('Чоштепа', self.api.call.call_args.args[1]['text'])
+        self.assertIn('https://clck.ru/3Pdgm3', str(self.api.call.call_args.args[1]['reply_markup']))
 
     def test_master_phone_is_returned_in_group(self):
         item = {'id': 'test', 'name': 'Test workshop', 'region': 'Toshkent', 'address': 'Test address', 'phone': 'TEST-PHONE', 'specialty': 'Test service'}
@@ -71,13 +73,16 @@ class GroupAnswerTests(unittest.TestCase):
         propanbot.handle_message(self.api, self.db, self.msg(20, 'Янги Узбекистан ишга тушди 8300сум'))
         self.api.call.assert_not_called()
         propanbot.handle_message(self.api, self.db, self.msg(21, 'Янги Узбекистанда пропан қанча?'))
-        self.assertIn('8,300', self.api.call.call_args.args[1]['text'])
+        self.assertIn('8 300', self.api.call.call_args.args[1]['text'])
 
     def test_alias_question_returns_same_station_price(self):
         propanbot.handle_message(self.api, self.db, self.msg(30, 'Янги Узбекистан ишга тушди 8300сум'))
         for mid, text in [(31, 'ИБРда пропан қанча?'), (32, '/prices IBR')]:
             propanbot.handle_message(self.api, self.db, self.msg(mid, text))
-            self.assertIn('8,300', self.api.call.call_args.args[1]['text'])
+            payload = self.api.call.call_args.args[1]
+            self.assertIn('Шохобчани танланг', payload['text'])
+            self.assertIn('st:6', str(payload['reply_markup']))
+            self.assertIn('st:19', str(payload['reply_markup']))
 
     def test_command_for_another_bot_is_ignored(self):
         propanbot.handle_message(self.api, self.db, self.msg(8, '/prices@other_bot Choshtepa'))

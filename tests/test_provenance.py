@@ -33,7 +33,7 @@ class ProvenanceTests(unittest.TestCase):
     def test_export_keeps_author_and_message_link(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'result.json'
-            path.write_text(json.dumps({'id': 1234567890, 'type': 'public_supergroup', 'messages': [{'id': 99, 'type': 'message', 'from': 'Export Reporter', 'date_unixtime': '1793100000', 'text': 'IBR 8300dan'}]}))
+            path.write_text(json.dumps({'id': 1234567890, 'type': 'public_supergroup', 'messages': [{'id': 99, 'type': 'message', 'from': 'Export Reporter', 'date_unixtime': '1793100000', 'text': 'Yangi Uzbekistan 8300dan'}]}))
             history_import.import_file(self.db, path, -1001234567890)
         listing = conversation.listings(self.db)[0]
         self.assertIn('Export Reporter', listing)
