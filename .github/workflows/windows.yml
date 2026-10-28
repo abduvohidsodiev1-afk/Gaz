@@ -24,13 +24,11 @@ jobs:
         run: .\dist\PropanBot.exe --self-test
       - name: Package clean distribution
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path package/PropanBot -Force
-          Copy-Item dist/PropanBot.exe,START.bat,STOP.bat,IMPORT_HISTORY.bat,AI_TEST.bat,AI_DIAG.bat,AI_HYBRID_TEST.bat,.env.example,catalog.example.json,README_UZ.md -Destination package/PropanBot
-          Compress-Archive -Path package/PropanBot -DestinationPath PropanBot-Windows.zip
+        run: python scripts/build_distribution.py --exe dist/PropanBot.exe --dest package/PropanBot --commit "$env:GITHUB_SHA"
       - uses: actions/upload-artifact@v4
         with:
           name: PropanBot-Windows
-          path: PropanBot-Windows.zip
+          path: package/PropanBot/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14

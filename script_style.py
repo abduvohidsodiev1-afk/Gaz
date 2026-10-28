@@ -1,7 +1,7 @@
 """Match Uzbek Latin/Cyrillic response script while preserving URLs and identifiers."""
 import re
 
-PROTECTED = re.compile(r'https?://\S+|tg://\S+|@[A-Za-z0-9_]+|/[A-Za-z_]+(?:@[A-Za-z0-9_]+)?|\b(?:IBR|KFC|7Seven|wait-\d+-uz|price-labels)\b')
+PROTECTED = re.compile(r'https?://\S+|tg://\S+|@[A-Za-z0-9_]+|/[A-Za-z_]+(?:@[A-Za-z0-9_]+)?|\b(?:PropanBot-\d{4}\.\d{2}\.\d{2}|IBR|KFC|7Seven|wait-\d+-uz|price-labels)\b')
 CYR = dict(zip('абвгдежзийклмнопрстуфхцчшъыьэюяўқғҳё',
                ['a','b','v','g','d','e','j','z','i','y','k','l','m','n','o','p','r','s','t','u','f','x','ts','ch','sh','','i','','e','yu','ya','o‘','q','g‘','h','yo']))
 LAT = dict(zip('abcdefghijklmnopqrstuvwxyz', 'абcдефгҳиjклмнопқрстувwхйз'))

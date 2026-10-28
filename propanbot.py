@@ -21,6 +21,7 @@ import script_style
 import ai_benchmark
 import ai_diagnostics
 import hybrid_benchmark
+from release_info import APP_VERSION
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
@@ -199,6 +200,7 @@ def run(base):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--self-test', action='store_true')
+    parser.add_argument('--version', action='version', version=APP_VERSION)
     parser.add_argument('--ai-test', action='store_true')
     parser.add_argument('--ai-diagnose', action='store_true')
     parser.add_argument('--ai-hybrid-test', action='store_true')
