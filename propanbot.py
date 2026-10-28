@@ -17,6 +17,7 @@ import group_answers
 import history_import
 import station_directory
 import group_wait
+import script_style
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
@@ -107,7 +108,7 @@ def handle_message(api, db, message):
         else:
             return
     for reply in replies:
-        api.call('sendMessage', {'chat_id': chat_id, 'text': reply, 'reply_markup': catalog.KEYBOARD})
+        api.call('sendMessage', script_style.render({'chat_id': chat_id, 'text': reply, 'reply_markup': catalog.KEYBOARD}, script_style.detect(message.get('text', ''))))
 
 
 class Telegram:

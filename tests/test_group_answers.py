@@ -62,11 +62,11 @@ class GroupAnswerTests(unittest.TestCase):
         self.assertIn('https://clck.ru/3Pdgm3', str(self.api.call.call_args.args[1]['reply_markup']))
 
     def test_master_phone_is_returned_in_group(self):
-        item = {'id': 'test', 'name': 'Test workshop', 'region': 'Toshkent', 'address': 'Test address', 'phone': 'TEST-PHONE', 'specialty': 'Test service'}
+        item = {'id': 'test', 'name': 'Test workshop', 'region': 'Toshkent', 'address': 'Test address', 'phone': '+998900000000', 'specialty': 'Test service'}
         with self.db:
             self.db.execute('INSERT INTO catalog VALUES (?, ?, ?)', ('masters', 'test', json.dumps(item)))
         propanbot.handle_message(self.api, self.db, self.msg(6, 'Тошкентда уста телефони борми?'))
-        self.assertIn('TEST-PHONE', self.api.call.call_args.args[1]['text'])
+        self.assertIn('+998900000000', self.api.call.call_args.args[1]['text'])
 
     def test_missing_location_asks_in_same_chat(self):
         propanbot.handle_message(self.api, self.db, self.msg(7, 'Пропан қанча?'))

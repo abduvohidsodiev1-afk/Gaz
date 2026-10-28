@@ -1,4 +1,4 @@
-"""Persistent one-minute grace period for participant answers; no blocking sleeps."""
+"""Persistent 30-second grace period for participant answers; no blocking sleeps."""
 import json
 import re
 import time
@@ -7,11 +7,17 @@ import conversation
 import station_directory
 import question_intent
 
-WAIT_SECONDS = 60
+WAIT_SECONDS = 30
 
 
 def initialize(db):
     db.execute('CREATE TABLE IF NOT EXISTS pending_questions (chat_id INTEGER, message_id INTEGER, due REAL, state TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(chat_id,message_id))')
+    db.execute('CREATE TABLE IF NOT EXISTS wait_config (key TEXT PRIMARY KEY, value INTEGER)')
+    prior = db.execute("SELECT value FROM wait_config WHERE key='seconds'").fetchone()
+    previous = prior[0] if prior else 60
+    if previous != WAIT_SECONDS:
+        db.execute("UPDATE pending_questions SET due=due+? WHERE state='waiting'", (WAIT_SECONDS-previous,))
+    db.execute("INSERT INTO wait_config VALUES ('seconds', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (WAIT_SECONDS,))
     db.commit()
 
 
@@ -132,7 +138,7 @@ def accept(db, message, historical=False):
         tagged = author.get('id') in users or bool(author.get('username') and author['username'].casefold() in names)
         age = message.get('date', 0) - question.get('date', 0)
         allowed_tag = state in (('history', 'waiting') if historical else ('waiting', 'human', 'sent'))
-        tagged = tagged and allowed_tag and 0 <= age <= (60 if historical else 600)
+        tagged = tagged and allowed_tag and 0 <= age <= 600
         named = len(named_stations) == 1 and payload['target'].get('station_id') == named_stations[0] and state in ('waiting', 'history' if historical else 'waiting')
         if answer.get('named') and named_stations and payload['target'].get('station_id') not in named_stations:
             continue

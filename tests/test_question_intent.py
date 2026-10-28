@@ -33,12 +33,12 @@ class QuestionIntentTests(unittest.TestCase):
             propanbot.handle_message(api, self.db, self.message(2, 'mayorskida narx qanaqa'))
         api.call.assert_not_called()
         self.assertEqual(self.db.execute("SELECT count(*) FROM pending_questions WHERE state='waiting'").fetchone()[0], 1)
-        group_wait.tick(api, self.db, now=1059)
+        group_wait.tick(api, self.db, now=1029)
         api.call.assert_not_called()
-        group_wait.tick(api, self.db, now=1060)
+        group_wait.tick(api, self.db, now=1030)
         self.assertIn('8 200', api.call.call_args.args[1]['text'])
         labels = [b['text'] for row in api.call.call_args.args[1]['reply_markup']['inline_keyboard'] for b in row]
-        self.assertEqual(labels, ['✉️ Манба', '📍 Мўлжал'])
+        self.assertEqual(labels, ['💰 Narx manbasi', '🟢 Holat manbasi', '📍 Mo‘ljal'])
 
     def test_question_with_a_number_is_not_learned_as_a_price(self):
         message = self.message(1, 'Майорский 8200 нарх қанақа')

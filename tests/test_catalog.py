@@ -19,7 +19,7 @@ class CatalogTests(unittest.TestCase):
         self.data = {'stations': [
             {'id': 's1', 'name': 'Test A', 'region': 'Тошкент', 'address': 'Test street', 'price': 6000, 'updated': '2026-01-01', 'latitude': 41.3, 'longitude': 69.2},
             {'id': 's2', 'name': 'Test B', 'region': 'Бухоро', 'address': 'Test street', 'latitude': 39.7, 'longitude': 64.4}],
-            'masters': [{'id': 'm1', 'name': 'Test master', 'region': 'Тошкент', 'address': 'Test workshop', 'specialty': 'Test service', 'phone': 'TEST-NOT-A-PHONE'}]}
+            'masters': [{'id': 'm1', 'name': 'Test master', 'region': 'Тошкент', 'address': 'Test workshop', 'specialty': 'Test service', 'phone': '+998900000000'}]}
         self.load()
 
     def load(self):
@@ -46,7 +46,7 @@ class CatalogTests(unittest.TestCase):
         for text in [catalog.MASTERS, '/masters@gazpropan_uz_bot Toshkent']:
             result = catalog.responses(self.db, {'text': text})
             self.assertEqual(len(result), 1)
-            self.assertIn('TEST-NOT-A-PHONE', result[0])
+            self.assertIn('+998900000000', result[0])
             self.assertIn('Test service', result[0])
 
     def test_invalid_import_keeps_previous_data(self):
@@ -69,7 +69,7 @@ class CatalogTests(unittest.TestCase):
         propanbot.handle_message(api, self.db, {'chat': {'type': 'private', 'id': 1}, 'text': '/masters'})
         self.assertEqual(api.call.call_args.args[0], 'sendMessage')
         payload = api.call.call_args.args[1]
-        self.assertIn('TEST-NOT-A-PHONE', payload['text'])
+        self.assertIn('+998900000000', payload['text'])
         self.assertIn('keyboard', payload['reply_markup'])
 
     def test_all_regions_available(self):

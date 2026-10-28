@@ -25,12 +25,12 @@ class GroupWaitTests(unittest.TestCase):
         propanbot.handle_message(self.api, self.db, message)
         return message
 
-    def test_waits_full_minute_then_replies_once_in_group(self):
+    def test_waits_thirty_seconds_then_replies_once_in_group(self):
         self.ask()
         self.api.call.assert_not_called()
-        group_wait.tick(self.api, self.db, now=1059)
+        group_wait.tick(self.api, self.db, now=1029)
         self.api.call.assert_not_called()
-        group_wait.tick(self.api, self.db, now=1060)
+        group_wait.tick(self.api, self.db, now=1030)
         self.assertEqual(self.api.call.call_count, 1)
         self.assertEqual(self.api.call.call_args.args[1]['reply_parameters']['message_id'], 1)
         group_wait.tick(self.api, self.db, now=1100)
@@ -39,7 +39,7 @@ class GroupWaitTests(unittest.TestCase):
     def test_bare_numeric_reply_updates_price_and_suppresses_bot(self):
         question = self.ask()
         propanbot.handle_message(self.api, self.db, self.message(2, '8200', 1020, reply=question, author=20))
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.api.call.assert_not_called()
         self.assertIn('8 200', station_directory.detail(self.db, '11/1')['text'])
         self.assertIn('/2', str(station_directory.detail(self.db, '11/1')['reply_markup']))
@@ -47,7 +47,7 @@ class GroupWaitTests(unittest.TestCase):
     def test_tagged_asker_with_number_and_no_reply(self):
         self.ask()
         propanbot.handle_message(self.api, self.db, self.message(2, '@asker_one 8 200', 1020, author=20))
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.api.call.assert_not_called()
         self.assertIn('8 200', station_directory.detail(self.db, '11/1')['text'])
 
@@ -57,14 +57,14 @@ class GroupWaitTests(unittest.TestCase):
         answer['entities'] = [{'type': 'text_mention', 'offset': 0, 'length': 6, 'user': {'id': 10}}]
         propanbot.handle_message(self.api, self.db, answer)
         self.assertIn('8 200', station_directory.detail(self.db, '11/1')['text'])
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.api.call.assert_not_called()
 
     def test_same_price_also_cancels_fallback(self):
         station_directory.observe(self.db, self.message(9, 'Чоштепа 8200сум', 900))
         question = self.ask()
         propanbot.handle_message(self.api, self.db, self.message(2, '8200', 1020, reply=question, author=20))
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.api.call.assert_not_called()
 
     def test_tag_is_ambiguous_between_two_stations_no_price_is_guessed(self):
@@ -72,14 +72,14 @@ class GroupWaitTests(unittest.TestCase):
         self.ask(2, 'Майорский пропан қанча?')
         propanbot.handle_message(self.api, self.db, self.message(3, '@asker_one 8200', 1020, author=20))
         self.assertEqual(self.db.execute('SELECT count(*) FROM station_updates').fetchone()[0], 0)
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.assertEqual(self.api.call.call_count, 2)
 
     def test_explicit_reply_disambiguates_two_questions(self):
         question = self.ask()
         self.ask(2, 'Майорский пропан қанча?')
         propanbot.handle_message(self.api, self.db, self.message(3, '8200', 1020, reply=question, author=20))
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.assertEqual(self.api.call.call_count, 1)
         self.assertEqual(self.api.call.call_args.args[1]['reply_parameters']['message_id'], 2)
         self.assertIn('8 200', station_directory.detail(self.db, '11/1')['text'])
@@ -89,21 +89,21 @@ class GroupWaitTests(unittest.TestCase):
         question = self.ask()
         propanbot.handle_message(self.api, self.db, self.message(2, '8200', 1020, author=20))
         propanbot.handle_message(self.api, self.db, self.message(3, 'Билмайман', 1021, reply=question, author=20))
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.assertEqual(self.api.call.call_count, 1)
 
     def test_named_fact_counts_as_human_answer(self):
         self.ask()
         propanbot.handle_message(self.api, self.db, self.message(2, 'Чоштепа 8200сум', 1020, author=20))
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.api.call.assert_not_called()
         self.assertIn('8 200', station_directory.detail(self.db, '11/1')['text'])
 
     def test_persistent_pending_question_survives_reinitialization(self):
         self.ask()
         group_wait.initialize(self.db)
-        self.assertEqual(group_wait.poll_timeout(self.db, now=1055), 5)
-        group_wait.tick(self.api, self.db, now=1060)
+        self.assertEqual(group_wait.poll_timeout(self.db, now=1025), 5)
+        group_wait.tick(self.api, self.db, now=1030)
         self.assertEqual(self.api.call.call_count, 1)
 
     def test_historical_questions_never_schedule_group_posts(self):
@@ -120,7 +120,7 @@ class GroupWaitTests(unittest.TestCase):
             self.ask(mid, text)
         self.api.call.assert_not_called()
         self.assertEqual(self.db.execute("SELECT count(*) FROM pending_questions WHERE state='waiting'").fetchone()[0], 3)
-        group_wait.tick(self.api, self.db, now=1060)
+        group_wait.tick(self.api, self.db, now=1030)
         self.assertEqual(self.api.call.call_count, 3)
 
     def test_kancha_in_reply_uses_the_station_in_quoted_message(self):
@@ -130,13 +130,13 @@ class GroupWaitTests(unittest.TestCase):
         self.api.call.assert_not_called()
         propanbot.handle_message(self.api, self.db, self.message(3, '8200', 1020, reply=question, author=20))
         self.assertIn('8 200', station_directory.detail(self.db, '11/1')['text'])
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.api.call.assert_not_called()
 
     def test_price_confirmation_is_a_human_answer(self):
         question = self.ask(text='8 заправка 8200данми?')
         propanbot.handle_message(self.api, self.db, self.message(2, 'Ҳа шунақа', 1020, reply=question, author=20))
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.api.call.assert_not_called()
         self.assertIn('8 200', station_directory.detail(self.db, 'bridge8')['text'])
 
@@ -145,5 +145,5 @@ class GroupWaitTests(unittest.TestCase):
         answer = self.message(2, '8200', 1020, reply=question, author=20)
         answer['message_thread_id'] = 5
         propanbot.handle_message(self.api, self.db, answer)
-        group_wait.tick(self.api, self.db, now=1061)
+        group_wait.tick(self.api, self.db, now=1031)
         self.assertEqual(self.api.call.call_count, 1)

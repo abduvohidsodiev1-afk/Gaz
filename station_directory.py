@@ -9,6 +9,7 @@ import provenance
 import station_names
 import price_parse
 import question_intent
+import script_style
 
 # Number, full name, declared operating hours, location, spelling aliases.
 STATIONS = [
@@ -155,10 +156,12 @@ def detail(db, sid):
     if row[2]:
         text.append('🕒 Эълон қилинган иш вақти: ' + row[2])
     text.append('Гуруҳ хабарлари асосида; ҳолат ўзгариши мумкин.')
-    source = item.get('price_source') or item.get('status_source') or {}
+    price_source = item.get('price_source') or {}
+    status_source = item.get('status_source') or {}
+    source = price_source or status_source
     buttons = []
-    if source.get('link'):
-        buttons.append({'text': '✉️ Манба', 'url': source['link']})
+    for kind, title, entry in [('price', '💰 Нарх манбаси', price_source), ('status', '🟢 Ҳолат манбаси', status_source)]:
+        buttons.append({'text': title, 'url': entry['link']} if entry.get('link') else {'text': title, 'callback_data': 'ns:'+kind+':'+sid})
     if not source.get('username') and source.get('name'):
         text.append('Муаллиф: ' + source['name'])
     buttons.append({'text': '📍 Мўлжал', 'url': row[3]} if row[3] else {'text': '📍 Мўлжал', 'callback_data': 'st:'+sid})
@@ -208,6 +211,11 @@ def callback(api, db, query):
         api.call('answerCallbackQuery', {'callback_query_id': query['id'], 'text': 'Бу меню фақат манба гуруҳида ишлайди.'})
         return
     data = query.get('data', '')
+    if re.fullmatch(r'ns:(?:price|status):[A-Za-z0-9/]+', data) and data.split(':', 2)[2] in DATA:
+        missing = 'Нарх' if data.split(':')[1] == 'price' else 'Очиқ/ёпиқ ҳолати'
+        notice = missing + ' бўйича манба ҳали сақланмаган.'
+        api.call('answerCallbackQuery', {'callback_query_id': query['id'], 'text': script_style.text(notice, script_style.detect(message.get('text', '')))})
+        return
     if data.startswith('st:') and data[3:] in DATA:
         response = detail(db, data[3:])
     elif re.fullmatch(r'pg:\d{1,2}', data):
@@ -215,6 +223,7 @@ def callback(api, db, query):
     else:
         api.call('answerCallbackQuery', {'callback_query_id': query['id']})
         return
+    response = script_style.render(response, script_style.detect(message.get('text', '')))
     api.call('answerCallbackQuery', {'callback_query_id': query['id']})
     payload = {'chat_id': chat['id'], 'message_id': message['message_id'], **response,
                'link_preview_options': {'is_disabled': True}}

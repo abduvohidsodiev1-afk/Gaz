@@ -7,6 +7,7 @@ import station_names
 import station_directory
 import group_wait
 import question_intent
+import script_style
 
 BOT = 'gazpropan_uz_bot'
 
@@ -78,7 +79,7 @@ def answer(db, message):
         history = db.execute('SELECT count(*) FROM source_history').fetchone()[0]
         prices = db.execute('SELECT count(*) FROM area_prices').fetchone()[0]
         masters = db.execute("SELECT count(*) FROM catalog WHERE kind='masters'").fetchone()[0]
-        return f'Версия: wait-60-uz. Маҳаллий тарих: {history}/1000 хабар. Ҳудуд нархлари: {prices}. Усталар: {masters}. Аввалги Telegram тарихи фақат JSON импорт қилингач кўринади.'
+        return f'Версия: wait-30-uz. Маҳаллий тарих: {history}/1000 хабар. Ҳудуд нархлари: {prices}. Усталар: {masters}. Аввалги Telegram тарихи фақат JSON импорт қилингач кўринади.'
     if command in ('/start', '/help'):
         return 'Саволни шу гуруҳга ёзинг: «Чоштепада пропан қанча?», «Қибрайда шохобча қаерда?» ёки «Тошкентда уста телефони борми?». Буйруқлар: /prices, /stations, /masters. Жавобни шу ерда бераман.'
     kind = commands.get(command)
@@ -143,6 +144,7 @@ def respond(api, db, message, force=False):
                'reply_parameters': {'message_id': mid}, 'link_preview_options': {'is_disabled': True}}
     if 'message_thread_id' in message:
         payload['message_thread_id'] = message['message_thread_id']
+    payload = script_style.render(payload, script_style.detect(message.get('text', '')))
     api.call('sendMessage', payload)
     with db:
         db.execute('INSERT INTO group_answers VALUES (?, ?)', (chat_id, mid))

@@ -21,9 +21,9 @@ class BareStationPriceTests(unittest.TestCase):
         with patch('group_wait.time.time', return_value=1540):
             propanbot.handle_message(self.api, self.db, self.message(2, 'майорский канча', 1540))
         self.api.call.assert_not_called()
-        group_wait.tick(self.api, self.db, now=1599)
+        group_wait.tick(self.api, self.db, now=1569)
         self.api.call.assert_not_called()
-        group_wait.tick(self.api, self.db, now=1600)
+        group_wait.tick(self.api, self.db, now=1570)
         payload = self.api.call.call_args.args[1]
         self.assertIn('8 200', payload['text'])
         self.assertIn('Майорский', payload['text'])

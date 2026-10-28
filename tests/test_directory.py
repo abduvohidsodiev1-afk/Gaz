@@ -103,6 +103,22 @@ class DirectoryTests(unittest.TestCase):
         history_import.replay(self.db)
         self.assertIn('8 200', directory.detail(self.db, 'bridge8')['text'])
 
+    def test_price_and_open_status_have_different_source_buttons(self):
+        directory.observe(self.db, self.msg(1, 'Назарбек 8200сум'))
+        directory.observe(self.db, self.msg(2, 'Назарбек ёпиқ'))
+        buttons = directory.detail(self.db, '4')['reply_markup']['inline_keyboard'][0]
+        self.assertEqual([b['text'] for b in buttons], ['💰 Нарх манбаси', '🟢 Ҳолат манбаси', '📍 Мўлжал'])
+        self.assertEqual(buttons[0]['url'], 'https://t.me/propan_uzbekistan_2026/1')
+        self.assertEqual(buttons[1]['url'], 'https://t.me/propan_uzbekistan_2026/2')
+
+    def test_missing_source_button_does_not_invent_a_link(self):
+        api = Mock()
+        button = directory.detail(self.db, '14')['reply_markup']['inline_keyboard'][0][1]
+        self.assertNotIn('url', button)
+        directory.callback(api, self.db, {'id': 'cb', 'data': button['callback_data'], 'message': {'chat': {'id': -1, 'username': 'propan_uzbekistan_2026'}, 'message_id': 42, 'text': 'Майорский'}})
+        self.assertEqual(api.call.call_args.args[0], 'answerCallbackQuery')
+        self.assertIn('манба ҳали сақланмаган', api.call.call_args.args[1]['text'])
+
     def test_pagination_at_most_three_rows(self):
         first = directory.page()
         self.assertLessEqual(len(first['reply_markup']['inline_keyboard']), 3)
