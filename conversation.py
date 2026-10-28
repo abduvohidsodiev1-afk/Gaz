@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 import json
 import re
 import catalog
+import provenance
 
 UZ = timezone(timedelta(hours=5))
 
@@ -168,6 +169,8 @@ def observe(db, message):
             explicit_date = True
     if not context:
         return None
+    if apply and not explicit_date:
+        context['_price_source'] = provenance.capture(message)
     with db:
         db.execute('INSERT INTO price_context VALUES (?, ?, ?)', (chat, mid, json.dumps(context)))
         # Keep a bounded reply window; old price rows themselves remain persistent.
@@ -184,7 +187,7 @@ def observe(db, message):
                 return 'Нархнинг аниқ санаси сақланди.'
             record = {'place': place, 'price': context['price'], 'updated': observed,
                       'explicit_date': explicit_date or context.get('observed') is not None,
-                      'report_stamp': context['stamp']}
+                      'report_stamp': context['stamp'], '_price_source': context.get('_price_source')}
             db.execute('INSERT INTO area_prices VALUES (?, ?) ON CONFLICT(place) DO UPDATE SET body=excluded.body', (place, json.dumps(record)))
     return 'Ҳудуд нархи қабул қилинди.' if apply else 'Нарх бўйича жавоб кутилмоқда.'
 
@@ -198,4 +201,9 @@ def listings(db, query=''):
         label = 'Қуйилган сана' if r['explicit_date'] else 'Хабар санаси (қуйилган сана аниқ эмас)'
         landmark = LANDMARK_DESCRIPTIONS.get(r['place'], '')
         results.append(f"{landmark + chr(10) if landmark else ''}📍 {r['place'].title()} — {r['price']:,} сўм / литр\n{label}: {r['updated']}\nМанба: @propan_uzbekistan_2026 иштирокчилари.\nАниқ шохобча ва манзил кўрсатилмаган. Нарх боришдан олдин текширилсин.")
+    # Attach the author and the precise group message where the report was made.
+    for index, row in enumerate(rows[:10]):
+        source = provenance.lines(row.get('_price_source'))
+        if source:
+            results[index] += '\n' + '\n'.join(source)
     return results

@@ -2,6 +2,7 @@
 from datetime import date
 import json
 import hashlib
+import provenance
 import math
 
 STATIONS = '⛽ Шохобчалар'
@@ -128,6 +129,8 @@ def directory(db, kind, query='', location=None):
                     lines.append(f"Тахминий масофа: {distance(*location, r):.1f} км (тўғри чизиқ бўйича)")
         if r.get('_event_time'):
             lines.append('Манба: @propan_uzbekistan_2026 гуруҳидаги хабар. Маълумот мустақил текширилмаган.')
+        source = r.get('_price_source') if kind != 'masters' and r.get('price') else r.get('_source_message')
+        lines.extend(provenance.lines(source))
         messages.append('\n'.join(lines))
     if len(rows) > 10:
         messages.append('Биринчи 10 та натижа кўрсатилди. Аниқлаш учун шаҳар ёки туман номини ёзинг.')

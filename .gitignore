@@ -19,3 +19,8 @@ dist/
 
 # Local directory may contain contact information.
 catalog.json
+
+# Private Telegram history exports
+result.json
+ChatExport*/
+history*.json

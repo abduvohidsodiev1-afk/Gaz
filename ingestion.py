@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import catalog
+import provenance
 
 SOURCE_USERNAME = 'propan_uzbekistan_2026'
 
@@ -87,8 +88,11 @@ def ingest(db, message):
         identity = (clean(fields['name']), clean(fields['region']))
         candidates = [json.loads(r[0]) for r in db.execute('SELECT body FROM catalog WHERE kind=?', (kind,))]
         candidates = [r for r in candidates if (clean(r['name']), clean(r['region'])) == identity]
-        if fields.get('address'):
+        if fields.get('address') and kind != 'masters':
             candidates = [r for r in candidates if clean(r['address']) == clean(fields['address'])]
+        if not candidates and kind == 'masters' and fields.get('phone'):
+            candidates = [json.loads(r[0]) for r in db.execute("SELECT body FROM catalog WHERE kind='masters'")]
+            candidates = [r for r in candidates if r.get('phone') == fields['phone']]
         if len(candidates) > 1:
             raise ValueError('Бир хил номли бир нечта жой топилди. Аниқ манзилни ёзинг.')
         old = candidates[0] if candidates else None
@@ -114,7 +118,9 @@ def ingest(db, message):
             item.update(fields)
             item['_event_time'] = event_time
             item['_source'] = SOURCE_USERNAME
+            item['_source_message'] = provenance.capture(message)
             if fields.get('price'):
+                item['_price_source'] = provenance.capture(message)
                 item['updated'] = datetime.fromtimestamp(event_time, timezone.utc).strftime('%Y-%m-%d')
             status, reason = 'applied', 'Маълумот базага автоматик ' + ('янгиланди.' if old else 'қўшилди.')
         with db:

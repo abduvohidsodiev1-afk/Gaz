@@ -14,6 +14,7 @@ import catalog
 import ingestion
 import conversation
 import group_answers
+import history_import
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
@@ -47,6 +48,7 @@ def connect_db(path):
     ingestion.initialize(db)
     conversation.initialize(db)
     group_answers.initialize(db)
+    history_import.initialize(db)
     db.commit()
     return db
 
@@ -82,6 +84,7 @@ def handle_message(api, db, message):
         trusted = (message.get('chat', {}).get('type') in ('group', 'supergroup')
                    and message.get('chat', {}).get('username', '').casefold() == ingestion.SOURCE_USERNAME)
         if trusted:
+            history_import.remember(db, message)
             result = conversation.observe(db, message)
             if result is None:
                 result = ingestion.ingest(db, message)
@@ -120,8 +123,7 @@ class Telegram:
         return result['result']
 
 
-def run(base):
-    token = load_token(base)
+def acquire_lock(base):
     (base / 'run').mkdir(exist_ok=True)
     # The OS releases the lock automatically even after a crash.
     lock_file = open(base / 'run' / 'instance.lock', 'a+b')
@@ -139,6 +141,12 @@ def run(base):
     except OSError:
         lock_file.close()
         raise ValueError('Bot allaqachon ishlayapti.') from None
+    return lock_file
+
+
+def run(base):
+    token = load_token(base)
+    lock_file = acquire_lock(base)
     stop_path = base / 'run' / 'stop'
     stop_path.unlink(missing_ok=True)
     stopped = threading.Event()
@@ -155,6 +163,7 @@ def run(base):
             raise ValueError('Botda webhook yoqilgan. Polling uchun avval webhook sozlamasini tekshiring.')
         with contextlib.closing(connect_db(base / 'data' / 'propan.sqlite3')) as db:
             catalog.import_catalog(db, base / 'catalog.json')
+            history_import.replay(db)
             print('PropanBot ishlayapti. To‘xtatish: STOP.bat yoki Ctrl+C.', flush=True)
             while not stopped.is_set() and not stop_path.exists():
                 try:
@@ -177,6 +186,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--self-test', action='store_true')
     parser.add_argument('--stop', action='store_true')
+    parser.add_argument('--import-history', nargs='?', const='', metavar='JSON_FILE')
     args = parser.parse_args()
     if args.self_test:
         with contextlib.closing(connect_db(':memory:')) as db:
@@ -190,6 +200,43 @@ def main():
         (BASE / 'run' / 'stop').touch()
         print('To‘xtatish so‘rovi yuborildi. 45 soniyagacha kuting.')
         return 0
+    if args.import_history is not None:
+        try:
+            path = args.import_history
+            if not path:
+                from tkinter import Tk, filedialog
+                root = Tk()
+                root.withdraw()
+                path = filedialog.askopenfilename(title='Telegram JSON eksportini tanlang', filetypes=[('Telegram JSON', '*.json')])
+                root.destroy()
+                if not path:
+                    return 0
+            with contextlib.closing(acquire_lock(BASE)):
+                api = Telegram(load_token(BASE))
+                source = api.call('getChat', {'chat_id': '@' + ingestion.SOURCE_USERNAME})
+                if source.get('username', '').casefold() != ingestion.SOURCE_USERNAME:
+                    raise ValueError('Гуруҳ манбасини тасдиқлаб бўлмади.')
+                own_id = api.call('getMe', {})['id']
+                # Validate the file before modifying any local data.
+                history_import.read_export(path, source['id'], own_id)
+                (BASE / 'data').mkdir(exist_ok=True)
+                with contextlib.closing(connect_db(BASE / 'data' / 'propan.sqlite3')) as db:
+                    backup = sqlite3.connect(BASE / 'data' / 'before-history-import.sqlite3')
+                    try:
+                        db.backup(backup)
+                    finally:
+                        backup.close()
+                    result = history_import.import_file(db, path, source['id'], own_id)
+                    print('Импорт тугади: ' + str(result['messages']) + ' хабар текширилди.')
+                    print('Базада: шохобчалар=' + str(result['stations']) + ', усталар=' + str(result['masters']) + ', ҳудуд нархлари=' + str(result['prices']))
+                    print('Энди START.bat ни ишга туширинг.')
+            return 0
+        except ValueError as error:
+            print(str(error), file=sys.stderr)
+            return 1
+        except Exception:
+            print('Импорт хатоси. Интернет, токен ва Telegram JSON файлини текширинг.', file=sys.stderr)
+            return 1
     try:
         run(BASE)
     except ValueError as error:
