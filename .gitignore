@@ -27,3 +27,5 @@ history*.json
 
 ai-test-results/
 AI_TEST_RESULTS.*
+
+AI_DIAG_RESULTS.*
