@@ -20,6 +20,7 @@ import group_wait
 import script_style
 import ai_benchmark
 import ai_diagnostics
+import hybrid_benchmark
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
@@ -200,9 +201,12 @@ def main():
     parser.add_argument('--self-test', action='store_true')
     parser.add_argument('--ai-test', action='store_true')
     parser.add_argument('--ai-diagnose', action='store_true')
+    parser.add_argument('--ai-hybrid-test', action='store_true')
     parser.add_argument('--stop', action='store_true')
     parser.add_argument('--import-history', nargs='?', const='', metavar='JSON_FILE')
     args = parser.parse_args()
+    if args.ai_hybrid_test:
+        return hybrid_benchmark.run(BASE)
     if args.ai_diagnose:
         return ai_diagnostics.run(BASE)
     if args.ai_test:

@@ -29,3 +29,5 @@ ai-test-results/
 AI_TEST_RESULTS.*
 
 AI_DIAG_RESULTS.*
+
+AI_HYBRID_RESULTS.*

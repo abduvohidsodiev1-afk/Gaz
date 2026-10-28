@@ -8,7 +8,7 @@ import catalog
 @lru_cache(maxsize=4096)
 def is_question(text):
     norm = catalog.normalize(text).replace('q', 'k')
-    if '?' in norm:
+    if '?' in norm or re.search(r'\d\s*(?:s[ou]m)?\s*(?:danmi|mi)\b', norm):
         return True
     exact = bool(re.search(
         r'\b(?:kancha|kanaka|kandaka|kanday|kandey|kande|kandiy|kalay)(?:kan|ekan)?\b'
