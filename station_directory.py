@@ -7,6 +7,7 @@ import catalog
 import conversation
 import provenance
 import station_names
+import price_parse
 
 # Number, full name, declared operating hours, location, spelling aliases.
 STATIONS = [
@@ -105,12 +106,8 @@ def observe(db, message):
     if not isinstance(stamp, int) or stamp <= 0:
         return
     norm = catalog.normalize(text).replace('ы', 'i')
-    prices = re.findall(r'(?<!\d)(\d{4,5})\s*(?:s[ou]m|dan)\b', norm)
-    parsed = conversation.proposal(text)
-    if not prices and parsed and not parsed['question']:
-        prices = [str(parsed['price'])]
-    if len(prices) > 1:
-        return
+    reported_price = price_parse.amount(text)
+    prices = [str(reported_price)] if reported_price is not None else []
     status = None
     if re.search(r'\b(?:yopiq|yopildi|zakrito|ishlamayapti|ochiq emas|gaz yoq)\b', norm):
         status = 'Ёпиқ / газ йўқ'
@@ -150,11 +147,11 @@ def detail(db, sid):
     if item.get('price'):
         text.append('💰 ' + f"{item['price']:,}".replace(',', ' ') + ' сўм/л · ' + stamp_text(item['price_stamp']))
     else:
-        text.append('💰 Янги нарх ҳали тасдиқланмаган')
+        text.append('💰 Нарх базада топилмади')
     if item.get('status'):
         text.append('Сўнгги хабарда: ' + item['status'] + ' · ' + stamp_text(item['status_stamp']))
     else:
-        text.append('Ҳозир очиқлиги ҳақида янги маълумот йўқ')
+        text.append('🟢 Очиқ/ёпиқлиги: хабар берилмаган')
     if row[2]:
         text.append('🕒 Эълон қилинган иш вақти: ' + row[2])
     text.append('Гуруҳ хабарлари асосида; ҳолат ўзгариши мумкин.')

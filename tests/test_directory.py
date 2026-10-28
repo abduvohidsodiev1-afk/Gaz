@@ -20,7 +20,7 @@ class DirectoryTests(unittest.TestCase):
         self.assertEqual(len(directory.STATIONS), 28)
         card = directory.detail(self.db, '2')
         self.assertIn('08:00–20:00', card['text'])
-        self.assertIn('нарх ҳали тасдиқланмаган', card['text'])
+        self.assertIn('Нарх базада топилмади', card['text'])
         self.assertNotIn('ЗАКРЫТО', card['text'])
         self.assertNotIn('+998', card['text'])
         self.assertIn('https://clck.ru/3PdaHy', str(card['reply_markup']))

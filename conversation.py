@@ -5,6 +5,7 @@ import re
 import catalog
 import provenance
 import station_names
+import price_parse
 
 UZ = timezone(timedelta(hours=5))
 
@@ -181,6 +182,12 @@ def observe(db, message):
         return 'Бу мулоқот хабари аввал ўқилган.'
     text = message.get('text', message.get('caption', '')).strip()
     context = proposal(text) or place_caption(text)
+    if context is None:
+        bare_price = price_parse.amount(text)
+        if bare_price is not None:
+            known, choices = station_names.find_in_text(text, known_aliases(db))
+            if known and not choices and landmark_place(text) != 'ambiguous-bridge':
+                context = {'place': known, '_raw_place': known, 'price': bare_price, 'question': False}
     parent = get_context(db, chat, message.get('reply_to_message'))
     apply = False
     explicit_date = False

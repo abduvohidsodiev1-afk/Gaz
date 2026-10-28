@@ -85,7 +85,7 @@ class GroupAnswerTests(unittest.TestCase):
             payload = self.api.call.call_args.args[1]
             self.assertIn('Қибрай IBR', payload['text'])
             self.assertNotIn('8 300', payload['text'])
-            self.assertIn('нарх ҳали тасдиқланмаган', payload['text'])
+            self.assertIn('Нарх базада топилмади', payload['text'])
 
     def test_command_for_another_bot_is_ignored(self):
         propanbot.handle_message(self.api, self.db, self.msg(8, '/prices@other_bot Choshtepa'))
