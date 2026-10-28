@@ -67,6 +67,18 @@ class GroupAnswerTests(unittest.TestCase):
         propanbot.handle_message(self.api, self.db, self.msg(7, 'Пропан қанча?'))
         self.assertIn('Қайси шаҳар', self.api.call.call_args.args[1]['text'])
 
+    def test_opening_price_is_answered_back_in_group(self):
+        propanbot.handle_message(self.api, self.db, self.msg(20, 'Янги Узбекистан ишга тушди 8300сум'))
+        self.api.call.assert_not_called()
+        propanbot.handle_message(self.api, self.db, self.msg(21, 'Янги Узбекистанда пропан қанча?'))
+        self.assertIn('8,300', self.api.call.call_args.args[1]['text'])
+
+    def test_alias_question_returns_same_station_price(self):
+        propanbot.handle_message(self.api, self.db, self.msg(30, 'Янги Узбекистан ишга тушди 8300сум'))
+        for mid, text in [(31, 'ИБРда пропан қанча?'), (32, '/prices IBR')]:
+            propanbot.handle_message(self.api, self.db, self.msg(mid, text))
+            self.assertIn('8,300', self.api.call.call_args.args[1]['text'])
+
     def test_command_for_another_bot_is_ignored(self):
         propanbot.handle_message(self.api, self.db, self.msg(8, '/prices@other_bot Choshtepa'))
         self.api.call.assert_not_called()

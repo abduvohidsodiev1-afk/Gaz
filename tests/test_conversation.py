@@ -80,6 +80,42 @@ class ConversationTests(unittest.TestCase):
         conversation.observe(self.db, self.msg(11, '8200', photo))
         self.assertEqual(self.prices(), [])
 
+    def test_opening_report_with_attached_currency(self):
+        message = self.msg(20, 'Янги Узбекистан ишга тушди 8300сум')
+        conversation.observe(self.db, message)
+        row = self.prices()[0]
+        self.assertEqual(row['place'], 'yangi uzbekistan')
+        self.assertEqual(row['price'], 8300)
+        self.assertNotIn('ishga', row['place'])
+
+    def test_currency_and_opening_variants(self):
+        for text in ['Yangi Uzbekistan ishga tushdi 8300sum',
+                     'Yangi Uzbekistan ochildi 8300 som',
+                     'Янги Узбекистан 8300сўм']:
+            result = conversation.proposal(text)
+            self.assertEqual(result['price'], 8300)
+            self.assertEqual(result['place'], 'yangi uzbekistan')
+        self.assertIsNone(conversation.proposal('Янги Узбекистан ишга тушмади 8300сум'))
+
+    def test_ibr_and_yangi_uzbekistan_share_one_price(self):
+        conversation.observe(self.db, self.msg(30, 'Янги Узбекистан ишга тушди 8300сум'))
+        conversation.observe(self.db, self.msg(31, 'IBR 8400 dan'))
+        self.assertEqual(len(self.prices()), 1)
+        self.assertEqual(self.prices()[0]['price'], 8400)
+        self.assertEqual(len(conversation.listings(self.db, 'ИБР')), 1)
+        self.assertEqual(len(conversation.listings(self.db, 'Янги Ўзбекистон')), 1)
+        # Do not conflate other qualified station names with this exact alias.
+        self.assertNotEqual(conversation.canonical_place('Кибрай ИБР'), 'yangi uzbekistan')
+
+    def test_old_alias_rows_merge_on_startup(self):
+        for place, price, stamp in [('ibr', 8300, 100), ('yangi uzbekistan', 8400, 200)]:
+            row = {'place': place, 'price': price, 'updated': '2026-10-27', 'report_stamp': stamp, 'explicit_date': False}
+            self.db.execute('INSERT INTO area_prices VALUES (?, ?)', (place, json.dumps(row)))
+        self.db.commit()
+        conversation.initialize(self.db)
+        self.assertEqual(len(self.prices()), 1)
+        self.assertEqual(self.prices()[0]['price'], 8400)
+
     def test_no_station_or_coordinates_invented(self):
         conversation.observe(self.db, self.msg(1, 'Choshtepa 8500 dan'))
         self.assertEqual(self.db.execute('SELECT COUNT(*) FROM catalog').fetchone()[0], 0)

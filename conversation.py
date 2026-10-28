@@ -7,21 +7,49 @@ import catalog
 UZ = timezone(timedelta(hours=5))
 
 
+PLACE_ALIASES = {
+    'ibr': 'yangi uzbekistan',
+    'yangi uzbekiston': 'yangi uzbekistan',
+    'yangi uzbekistan': 'yangi uzbekistan',
+    'yangi ozbekiston': 'yangi uzbekistan',
+    'yangi uzbekiston ibr': 'yangi uzbekistan',
+    'yangi uzbekistan ibr': 'yangi uzbekistan',
+}
+
+
+def canonical_place(text):
+    normalized = re.sub(r'\s+', ' ', catalog.normalize(text)).strip()
+    return PLACE_ALIASES.get(normalized, normalized)
+
+
 def initialize(db):
     db.execute('CREATE TABLE IF NOT EXISTS area_prices (place TEXT PRIMARY KEY, body TEXT NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS price_context (chat_id INTEGER, message_id INTEGER, body TEXT NOT NULL, PRIMARY KEY(chat_id,message_id))')
+    # Consolidate previously saved exact aliases, retaining the newest observation.
+    rows = [json.loads(r[0]) for r in db.execute('SELECT body FROM area_prices')]
+    grouped = {}
+    for row in rows:
+        place = canonical_place(row['place'])
+        if place not in grouped or (row['updated'], row['report_stamp']) > (grouped[place]['updated'], grouped[place]['report_stamp']):
+            grouped[place] = dict(row, place=place)
+    with db:
+        for row in rows:
+            if canonical_place(row['place']) != row['place']:
+                db.execute('DELETE FROM area_prices WHERE place=?', (row['place'],))
+        for place, row in grouped.items():
+            db.execute('INSERT INTO area_prices VALUES (?, ?) ON CONFLICT(place) DO UPDATE SET body=excluded.body', (place, json.dumps(row)))
     db.commit()
 
 
 def proposal(text):
     norm = catalog.normalize(text).strip()
-    match = re.fullmatch(r'([a-z][a-z\s\-ʻ’\x27]{2,70}?)\s+(\d{4,5})\s*(danmi|dan|som(?:dan)?(?:mi)?)\s*([?!.]*)', norm)
+    match = re.fullmatch(r'([a-z][a-z\s\-ʻ’\x27]{2,70}?)\s+(?:(?:ishga\s+tushdi|ochildi|ishlayapti)\s+)?(\d{4,5})\s*(danmi|dan|s[ou]m(?:dan)?(?:mi)?)\s*([?!.]*)', norm)
     if not match or not 500 <= int(match[2]) <= 100000:
         return None
     place = re.sub(r'\s+', ' ', match[1]).strip()
-    if any(w in place.split() for w in ('mashina', 'balon', 'sotiladi', 'telefon', 'usta', 'narx', 'qancha')):
+    if any(w in place.split() for w in ('mashina', 'balon', 'sotiladi', 'telefon', 'usta', 'narx', 'qancha', 'ishga', 'tushmadi', 'ishlamayapti', 'emas', 'yoq')):
         return None
-    return {'place': place, 'price': int(match[2]), 'question': 'mi' in match[3] or '?' in match[4]}
+    return {'place': canonical_place(place), 'price': int(match[2]), 'question': 'mi' in match[3] or '?' in match[4]}
 
 
 def place_caption(text):
@@ -30,7 +58,7 @@ def place_caption(text):
     match = re.fullmatch(r'([a-z][a-z\s\-]{2,70}?)\s+(?:ochered|ocher|navbat|ocheret|ocheredь)\s+(?:kam|kop|yoq|bor)[.! ]*', norm)
     if not match:
         return None
-    return {'place': re.sub(r'\s+', ' ', match[1]).strip(), 'question': True}
+    return {'place': canonical_place(match[1]), 'question': True}
 
 
 def confirmation(text):
@@ -42,7 +70,9 @@ def get_context(db, chat_id, message):
         return None
     row = db.execute('SELECT body FROM price_context WHERE chat_id=? AND message_id=?', (chat_id, message.get('message_id'))).fetchone()
     if row:
-        return json.loads(row[0])
+        context = json.loads(row[0])
+        context['place'] = canonical_place(context['place'])
+        return context
     candidate = proposal(message.get('text', message.get('caption', ''))) or place_caption(message.get('caption', message.get('text', '')))
     if candidate:
         candidate['stamp'] = message.get('date', 0)
@@ -120,7 +150,7 @@ def observe(db, message):
 
 
 def listings(db, query=''):
-    query = catalog.normalize(query).strip()
+    query = canonical_place(query)
     rows = [json.loads(r[0]) for r in db.execute('SELECT body FROM area_prices ORDER BY place')]
     rows = [r for r in rows if query in catalog.normalize(r['place'])]
     results = []

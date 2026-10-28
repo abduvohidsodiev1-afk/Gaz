@@ -29,7 +29,13 @@ def place_in_text(db, text, kind):
             segment = tokens[start:start + len(wanted)]
             if wanted and segment[:-1] == wanted[:-1] and segment[-1] in (wanted[-1], wanted[-1] + 'da', wanted[-1] + 'dan', wanted[-1] + 'dagi'):
                 matches.append(place)
-    return max(matches, key=len) if matches else ''
+    for alias, canonical in conversation.PLACE_ALIASES.items():
+        wanted = words(alias)
+        for start in range(len(tokens) - len(wanted) + 1):
+            segment = tokens[start:start + len(wanted)]
+            if segment[:-1] == wanted[:-1] and segment[-1] in (wanted[-1], wanted[-1] + 'da', wanted[-1] + 'dan', wanted[-1] + 'dagi'):
+                matches.append(canonical)
+    return conversation.canonical_place(max(matches, key=len)) if matches else ''
 
 
 def answer(db, message):
