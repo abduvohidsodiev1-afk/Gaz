@@ -24,3 +24,6 @@ catalog.json
 result.json
 ChatExport*/
 history*.json
+
+ai-test-results/
+AI_TEST_RESULTS.*

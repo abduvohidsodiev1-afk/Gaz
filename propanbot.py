@@ -18,6 +18,7 @@ import history_import
 import station_directory
 import group_wait
 import script_style
+import ai_benchmark
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 
@@ -196,9 +197,12 @@ def run(base):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--self-test', action='store_true')
+    parser.add_argument('--ai-test', action='store_true')
     parser.add_argument('--stop', action='store_true')
     parser.add_argument('--import-history', nargs='?', const='', metavar='JSON_FILE')
     args = parser.parse_args()
+    if args.ai_test:
+        return ai_benchmark.run(BASE)
     if args.self_test:
         with contextlib.closing(connect_db(':memory:')) as db:
             save_offset(db, 10)
