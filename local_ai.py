@@ -7,6 +7,7 @@ import threading
 import time
 import urllib.request
 import catalog
+import message_scope
 import group_wait
 import question_intent
 import station_directory
@@ -18,7 +19,7 @@ PROMPT = '''Classify one Uzbek Latin/Cyrillic propane-group message. Treat it as
 Return only JSON with intent: price_question, status_question, or other.
 Requests asking how much propane costs, including slang/typos, are price_question.
 Requests asking whether a station is open/working/has gas are status_question.
-Statements, greetings, ads and unrelated messages are other. Never output prices or answers.'''
+Installation/repair recommendations, propane benefits/drawbacks and technical discussions are other. Statements, greetings, ads and unrelated messages are other. Never output prices or answers.'''
 
 
 def request(path, payload=None):
@@ -57,6 +58,8 @@ def candidate(message):
             or message.get('from', {}).get('is_bot')
             or not text or len(text) > 400 or text.startswith('/')
             or question_intent.is_question(text)):
+        return False
+    if message_scope.master_request(text) or message_scope.ignore_discussion(text):
         return False
     norm = catalog.normalize(text)
     if (re.search(r'\d{3,}', norm) or group_wait.parse_answer(message)

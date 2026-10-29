@@ -152,6 +152,11 @@ def responses(db, message):
     for label, cmd, kind in [(STATIONS, '/stations', 'stations'), (PRICES, '/prices', 'prices'), (MASTERS, '/masters', 'masters')]:
         if text == label or command == cmd:
             return directory(db, kind, query if command == cmd else '')
+    import message_scope
+    if message_scope.master_request(text):
+        return [message_scope.masters(db, text)]
+    if message_scope.ignore_discussion(text):
+        return []
     if text.startswith('/') or not text:
         return ['Қуйидаги менюдан танланг ёки /help юборинг.']
     return ['⛽ Шохобчалар ва нархлар:'] + directory(db, 'stations', text) + ['🔧 Усталар:'] + directory(db, 'masters', text)

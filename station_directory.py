@@ -4,6 +4,7 @@ import re
 from functools import lru_cache
 from datetime import datetime, timezone, timedelta
 import catalog
+import message_scope
 import conversation
 import provenance
 import station_names
@@ -196,6 +197,8 @@ def page(ids=None, number=0):
 
 def reply(db, message):
     text = message.get('text', '')
+    if message_scope.master_request(text) or message_scope.ignore_discussion(text):
+        return None
     first = text.split()[0].split('@')[0] if text.split() else ''
     if '@' in (text.split()[0] if text.split() else '') and not text.split()[0].casefold().endswith('@gazpropan_uz_bot'):
         return None

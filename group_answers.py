@@ -2,6 +2,7 @@
 import json
 import re
 import catalog
+import message_scope
 import conversation
 import station_names
 import station_directory
@@ -83,6 +84,10 @@ def answer(db, message):
         return f'Версия: {APP_VERSION}. Маҳаллий тарих: {history}/1000 хабар. Ҳудуд нархлари: {prices}. Усталар: {masters}. Аввалги Telegram тарихи фақат JSON импорт қилингач кўринади.'
     if command in ('/start', '/help'):
         return 'Саволни шу гуруҳга ёзинг: «Чоштепада пропан қанча?», «Қибрайда шохобча қаерда?» ёки «Тошкентда уста телефони борми?». Буйруқлар: /prices, /stations, /masters. Жавобни шу ерда бераман.'
+    if message_scope.master_request(text):
+        return message_scope.masters(db, text)
+    if message_scope.ignore_discussion(text):
+        return None
     kind = commands.get(command)
     if not kind and question:
         if re.search(r'\b(?:usta|ustalar|ustaxona)\b', norm):

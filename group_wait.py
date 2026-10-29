@@ -3,6 +3,7 @@ import json
 import re
 import time
 import catalog
+import message_scope
 import conversation
 import station_directory
 import question_intent
@@ -24,6 +25,8 @@ def initialize(db):
 
 def is_question(message):
     text = message.get('text', '').strip()
+    if message_scope.master_request(text) or message_scope.ignore_discussion(text):
+        return False
     command = text.split()[0].split('@')[0] if text.split() else ''
     if command.startswith('/') and command not in ('/prices', '/stations'):
         return False

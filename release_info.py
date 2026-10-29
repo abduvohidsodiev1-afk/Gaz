@@ -1,2 +1,2 @@
 """Public portable release identity."""
-APP_VERSION = 'PropanBot-2026.10.29.2'
+APP_VERSION = 'PropanBot-2026.10.29.3'
