@@ -34,7 +34,7 @@ def build(root,exe,destination,commit=''):
     shutil.copy2(exe,destination/'PropanBot.exe')
     hashes={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in destination.iterdir() if p.is_file()}
     manifest={'version':APP_VERSION,'commit':commit,'files_sha256':hashes,
-              'private_files_included':False,'ai_in_live_bot':False,
+              'private_files_included':False,'ai_in_live_bot':True,
               'keep_from_previous_install':['.env','data/']}
     (destination/'RELEASE_INFO.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
     return manifest

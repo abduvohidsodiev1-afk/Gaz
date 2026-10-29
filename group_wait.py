@@ -18,6 +18,7 @@ def initialize(db):
     if previous != WAIT_SECONDS:
         db.execute("UPDATE pending_questions SET due=due+? WHERE state='waiting'", (WAIT_SECONDS-previous,))
     db.execute("INSERT INTO wait_config VALUES ('seconds', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (WAIT_SECONDS,))
+    db.execute("DELETE FROM pending_questions WHERE state='ai'")  # Interrupted inference cannot be restored.
     db.commit()
 
 
@@ -30,7 +31,7 @@ def is_question(message):
         return False  # Explicit menu navigation is immediate.
     if re.search(r'\b(?:usta|ustalar|ustaxona)\b', catalog.normalize(text)):
         return False
-    if not station_directory.is_question(text) and command not in ('/prices', '/stations'):
+    if not (station_directory.is_question(text) or message.get('_ai_question')) and command not in ('/prices', '/stations'):
         return False
     return True
 
@@ -61,7 +62,7 @@ def queue(db, message, historical=False, now=None):
     mid = message.get('message_id')
     if not isinstance(mid, int):
         return False
-    now = time.time() if now is None else now
+    now = message.get('_received_at', time.time()) if now is None else now
     body = {'message': message, 'target': target(db, message)}
     with db:
         db.execute('INSERT INTO pending_questions VALUES (?, ?, ?, ?, ?) ON CONFLICT(chat_id,message_id) DO NOTHING',
@@ -137,17 +138,17 @@ def accept(db, message, historical=False):
         author = question.get('from', {})
         tagged = author.get('id') in users or bool(author.get('username') and author['username'].casefold() in names)
         age = message.get('date', 0) - question.get('date', 0)
-        allowed_tag = state in (('history', 'waiting') if historical else ('waiting', 'human', 'sent'))
+        allowed_tag = state in (('history', 'waiting') if historical else ('waiting', 'ai', 'human', 'sent'))
         tagged = tagged and allowed_tag and 0 <= age <= 600
-        named = len(named_stations) == 1 and payload['target'].get('station_id') == named_stations[0] and state in ('waiting', 'history' if historical else 'waiting')
+        named = len(named_stations) == 1 and payload['target'].get('station_id') == named_stations[0] and state in (('waiting', 'history') if historical else ('waiting', 'ai'))
         if answer.get('named') and named_stations and payload['target'].get('station_id') not in named_stations:
             continue
         if direct or tagged or named:
             candidates.append((mid, payload, state))
     if reply_mid is not None:
         candidates = [candidate for candidate in candidates if candidate[0] == reply_mid]
-    if reply_mid is None and any(candidate[2] == 'waiting' for candidate in candidates):
-        candidates = [candidate for candidate in candidates if candidate[2] == 'waiting']
+    if reply_mid is None and any(candidate[2] in ('waiting', 'ai') for candidate in candidates):
+        candidates = [candidate for candidate in candidates if candidate[2] in ('waiting', 'ai')]
     if len(candidates) != 1:
         return False  # Never attach a bare number to one of several simultaneous questions by guesswork.
     mid, payload, _ = candidates[0]

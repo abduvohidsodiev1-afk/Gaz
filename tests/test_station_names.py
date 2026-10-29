@@ -25,14 +25,9 @@ class StationNameTests(unittest.TestCase):
         self.assertEqual(conversation.canonical_place('8 запрка сассу куприк'), '8 zapravka')
 
     def test_latest_owner_mapping_for_bare_bridge_names(self):
-        self.assertEqual(conversation.canonical_place('сассиқ мост'), '9 zapravka')
-        self.assertEqual(conversation.canonical_place('сассу мост'), '9 zapravka')
-        self.assertEqual(conversation.canonical_place('сассиқ куприк'), '9 zapravka')
-        self.assertEqual(conversation.canonical_place('сассу куприк'), '8 zapravka')
-
-    def test_shared_bridge_name_is_ambiguous(self):
-        self.assertEqual(conversation.landmark_place('сассик купру'), 'ambiguous-bridge')
-        self.assertIsNone(conversation.proposal('сассик купру 8500дан'))
+        for name in ['сассиқ мост', 'сассу мост', 'сассиқ куприк', 'сассу куприк', 'сассик купру', 'sassu kopri']:
+            self.assertEqual(conversation.canonical_place(name), '8 zapravka')
+            self.assertEqual(conversation.canonical_place(name + 'дан кейин'), '9 zapravka')
 
     def test_two_similar_names_are_not_guessed(self):
         self.assertEqual(station_names.resolve('Chushtepa', {'Choshtepa': 'one', 'Chushtepa': 'two'}), ('', ['one', 'two']))

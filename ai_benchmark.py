@@ -18,7 +18,7 @@ A price report can be just a known station name plus number, no currency label.
 A question mentioning a price is not a factual report. Set price_uzs=null for questions.
 A bare numeric reply or mention can report a price ONLY if it unambiguously answers one station question.
 If one person asks about two stations and is tagged with a bare number, do not guess.
-Sergeli has two separate stations; the shared Sassik kupru landmark is ambiguous.
+Sergeli has two separate stations; unqualified Sassu/Sassiq bridge names mean bridge8; explicitly after the bridge means bridge9.
 Do not treat phone numbers, car models or unrelated questions as prices.
 Unknown stations and unbound numbers require review. An explicitly old price requires review.
 For greetings/unrelated text use other. For a phone-only statement at a known station use other with its station_id.

@@ -66,7 +66,7 @@ def answer(db, message):
         return None
     command = first.split('@')[0]
     commands = {'/prices': 'prices', '/stations': 'stations', '/masters': 'masters'}
-    question = question_intent.is_question(text)
+    question = question_intent.is_question(text) or bool(message.get('_ai_question'))
     if command == '/names':
         aliases = conversation.known_aliases(db)
         names = sorted(set(aliases.values()))

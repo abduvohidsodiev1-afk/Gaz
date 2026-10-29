@@ -15,6 +15,7 @@ def is_question(text):
         r'|\b(?:nechi|necha|kayerda|kaerda|katta|bormi|kimda|kerak|biladimi|'
         r'ochikmi|yopikmi|ishlayaptimi|ishlaydimi|otkrit|zakrit|skolko|pochem)\b'
         r'|\b(?:aytvor(?:ila|ilar|in|ing|inglar)?|aytvoring|ayting|aytibber(?:ing)?|etvor(?:ila|ing)?)\b'
+        r'|\b(?:nec|nech|nek)\s+pul\b'
         r'|\b(?:aytib|yozib)\s+(?:ber|yubor|koy)(?:ing|ila)?\b', norm))
 
     if exact:

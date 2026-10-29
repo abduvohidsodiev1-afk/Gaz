@@ -20,7 +20,7 @@ class LandmarkTests(unittest.TestCase):
         for bridge in ['сассу мост', 'сассиқ мост', 'сассу кўприк', 'сассиқ кўприк']:
             self.assertEqual(conversation.canonical_place(bridge + 'га етмасдан'), '8 zapravka')
             self.assertEqual(conversation.canonical_place(bridge + 'дан кейин'), '9 zapravka')
-            self.assertEqual(conversation.landmark_place(bridge), '8 zapravka' if bridge == 'сассу кўприк' else '9 zapravka')
+            self.assertEqual(conversation.landmark_place(bridge), '8 zapravka')
 
     def test_coffee_red_and_opposite_are_one_station(self):
         for text in ['кофе заправка', 'қизил заправка', 'сассу мостадан кейин 9 заправкани тўғрисидаги заправка']:
@@ -35,12 +35,9 @@ class LandmarkTests(unittest.TestCase):
         self.assertIn('8,000', conversation.listings(self.db, 'сассиқ мостга етмасдан')[0])
         self.assertIn('9,000', conversation.listings(self.db, 'сассу кўприкдан кейин')[0])
 
-    def test_ambiguous_bridge_is_not_used_as_station(self):
-        self.assertIsNone(conversation.proposal('сассик купру 8000дан'))
-        answer = group_answers.answer(self.db, self.msg(1, 'Сассик купруда пропан қанча?'))
-        self.assertIn('8-заправками', answer)
-        self.assertIn('9-заправками', answer)
-        self.assertIn('Қизил', answer)
+    def test_unqualified_bridge_defaults_to_eight(self):
+        self.assertEqual(conversation.proposal('сассик купру 8000дан')['place'], '8 zapravka')
+        self.assertEqual(conversation.landmark_place('sassu kopri narxi nec pul'), '8 zapravka')
 
     def test_group_queries_return_landmark_and_correct_price(self):
         conversation.observe(self.db, self.msg(1, 'қизил заправка 8600дан'))

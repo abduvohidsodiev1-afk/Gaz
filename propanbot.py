@@ -21,6 +21,7 @@ import script_style
 import ai_benchmark
 import ai_diagnostics
 import hybrid_benchmark
+import local_ai
 from release_info import APP_VERSION
 
 BASE = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
@@ -77,7 +78,7 @@ def reply_text(text):
         return catalog.responses(db, {'text': text})[0]
 
 
-def handle_message(api, db, message):
+def handle_message(api, db, message, ai=None):
     if message.get('from', {}).get('is_bot'):
         return
     private = message.get('chat', {}).get('type') == 'private'
@@ -103,6 +104,10 @@ def handle_message(api, db, message):
             result = None
         if not private:
             if trusted:
+                if ai is not None:
+                    ai.submit(message, db)
+                    if command == '/status':
+                        api.call('sendMessage', script_style.render({'chat_id': chat_id, 'text': ai.status(), 'reply_parameters': {'message_id': message['message_id']}}, script_style.detect(text)))
                 group_answers.respond(api, db, message)
             return
         if result:
@@ -165,6 +170,7 @@ def run(base):
         signal.signal(sig, lambda *_: stopped.set())
     (base / 'data').mkdir(exist_ok=True)
     api = Telegram(token)
+    ai = None
     try:
         me = api.call('getMe', {})
         if me.get('username', '').lower() != 'gazpropan_uz_bot':
@@ -175,10 +181,13 @@ def run(base):
         with contextlib.closing(connect_db(base / 'data' / 'propan.sqlite3')) as db:
             catalog.import_catalog(db, base / 'catalog.json')
             history_import.replay(db)
+            ai = local_ai.LocalAI()
+            print('Lokal AI yordamchisi yoqildi. Holati: guruhda /status. Ollama kerak.', flush=True)
             print('PropanBot ishlayapti. To‘xtatish: STOP.bat yoki Ctrl+C.', flush=True)
             while not stopped.is_set() and not stop_path.exists():
                 try:
-                    updates = api.call('getUpdates', {'offset': offset(db), 'timeout': group_wait.poll_timeout(db), 'allowed_updates': ['message', 'callback_query']})
+                    ai.drain(api, db)
+                    updates = api.call('getUpdates', {'offset': offset(db), 'timeout': min(group_wait.poll_timeout(db), 1 if ai.outstanding else 5), 'allowed_updates': ['message', 'callback_query']})
                     for update in updates:
                         if stopped.is_set() or stop_path.exists():
                             break
@@ -186,13 +195,16 @@ def run(base):
                             station_directory.callback(api, db, update['callback_query'])
                         else:
                             message = update.get('message', {})
-                            handle_message(api, db, message)
+                            handle_message(api, db, message, ai)
                         save_offset(db, update['update_id'] + 1)
+                    ai.drain(api, db)
                     group_wait.tick(api, db)
                 except RuntimeError:
                     print('Telegram bilan aloqa xatosi. 5 soniyadan keyin qayta uriniladi.', flush=True)
                     stopped.wait(5)
     finally:
+        if ai is not None:
+            ai.close()
         stop_path.unlink(missing_ok=True)
         lock_file.close()
 
@@ -201,12 +213,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--self-test', action='store_true')
     parser.add_argument('--version', action='version', version=APP_VERSION)
+    parser.add_argument('--ai-check', action='store_true')
     parser.add_argument('--ai-test', action='store_true')
     parser.add_argument('--ai-diagnose', action='store_true')
     parser.add_argument('--ai-hybrid-test', action='store_true')
     parser.add_argument('--stop', action='store_true')
     parser.add_argument('--import-history', nargs='?', const='', metavar='JSON_FILE')
     args = parser.parse_args()
+    if args.ai_check:
+        return local_ai.check()
     if args.ai_hybrid_test:
         return hybrid_benchmark.run(BASE)
     if args.ai_diagnose:

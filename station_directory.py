@@ -63,6 +63,11 @@ def label(sid):
 
 @lru_cache(maxsize=2048)
 def find(text):
+    landmark = conversation.landmark_place(text)
+    if landmark == 'ambiguous-bridge':
+        return ['bridge8', 'bridge9']
+    if landmark in ('8 zapravka', '9 zapravka', 'kofe zapravka'):
+        return [{'8 zapravka': 'bridge8', '9 zapravka': 'bridge9', 'kofe zapravka': 'coffee'}[landmark]]
     # Prefer longest exact spelling over substrings (Choshtepa KFC != Choshtepa).
     tokens = re.findall(r'[a-z0-9]+', station_names.folded(text))
     exact = []
@@ -191,10 +196,10 @@ def reply(db, message):
         return None
     if first in ('/stations', '/names') and len(text.split()) == 1:
         return page()
-    if first not in ('/prices', '/stations', '/status') and not is_question(text):
+    if first not in ('/prices', '/stations', '/status') and not (is_question(text) or message.get('_ai_question')):
         return None
     matches = find(text)
-    if not matches and is_question(text):
+    if not matches and (is_question(text) or message.get('_ai_question')):
         parent = message.get('reply_to_message') or {}
         matches = find(parent.get('text', parent.get('caption', '')))
     if len(matches) == 1:

@@ -36,7 +36,7 @@ class ReleaseTests(unittest.TestCase):
             manifest=distribution.build(source,exe,dest,'test-commit')
             self.assertEqual(set(p.name for p in dest.iterdir()),set(distribution.FILES)|{'PropanBot.exe','RELEASE_INFO.json'})
             self.assertEqual(manifest['keep_from_previous_install'],['.env','data/'])
-            self.assertFalse(manifest['ai_in_live_bot'])
+            self.assertTrue(manifest['ai_in_live_bot'])
             self.assertEqual(manifest['commit'],'test-commit')
 
     def test_nonempty_destination_and_nonempty_token_template_are_rejected(self):

@@ -40,12 +40,14 @@ for landmark in ('sassu most', 'sassiq most', 'sassu koprik', 'sassiq koprik'):
 
 def landmark_place(text):
     raw = station_names.folded(text)
-    norm = raw.replace('kupru', 'kuprik')
+    norm = re.sub(r'\b(kupru|kupri)(?=\b|da\b|dan\b|ga\b)', 'kuprik', raw)
     bridge = re.search(r'\b(?:sassu|sassik)\s+(?:must|kuprik)(?:ga|ka|dan|adan|da)?\b', norm)
     opposite = re.search(r'\b(?:tugrisida(?:gi)?|tugrisidagi|ruparasida(?:gi)?)\b', norm)
     if re.search(r'\b(?:kufe|kizil)\s+zapravka', norm) or (opposite and re.search(r'\b9[ -]*(?:zapravka|shoxobcha)', norm)):
         return 'kofe zapravka'
     explicit = re.findall(r'\b([89])[ -]*(?:zapravka|shuxubcha)', norm)
+    if len(set(explicit)) > 1:
+        return 'ambiguous-bridge'
     if len(set(explicit)) == 1:
         return explicit[0] + ' zapravka'
     if bridge:
@@ -53,12 +55,8 @@ def landmark_place(text):
             return '8 zapravka'
         if 'keyin' in norm:
             return '9 zapravka'
-        # Latest owner mapping distinguishes unqualified names; this shared form stays ambiguous.
-        if re.search(r'\bsassik\s+kupru(?:da|dan|ga)?\b', raw):
-            return 'ambiguous-bridge'
-        if re.search(r'\bsassu\s+kuprik', norm):
-            return '8 zapravka'
-        return '9 zapravka'
+        # Owner clarification: an unqualified bridge nickname normally means station 8.
+        return '8 zapravka'
     for number in ('8', '9'):
         if re.search(r'\b' + number + r'[ -]*(?:zapravka|shoxobcha)', norm):
             return number + ' zapravka'
