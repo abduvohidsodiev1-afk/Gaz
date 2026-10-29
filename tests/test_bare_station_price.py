@@ -28,7 +28,7 @@ class BareStationPriceTests(unittest.TestCase):
         self.assertIn('8 200', payload['text'])
         self.assertIn('Майорский', payload['text'])
         self.assertNotIn('Нарх базада топилмади', payload['text'])
-        self.assertIn('Очиқ/ёпиқлиги: хабар берилмаган', payload['text'])
+        self.assertIn('Ҳолат: очиқ ёки ёпиқлиги номаълум', payload['text'])
         self.assertIn('/1', str(payload['reply_markup']))
 
     def test_all_listed_name_fact_variants_work_without_currency(self):
@@ -36,7 +36,7 @@ class BareStationPriceTests(unittest.TestCase):
             station_directory.observe(self.db, self.message(mid, text, 1000+mid))
         card = station_directory.detail(self.db, '14')
         self.assertIn('8 400', card['text'])
-        self.assertIn('Очиқ / газ бор', card['text'])
+        self.assertIn('🟢 Ҳолат: Очиқ, газ бор', card['text'])
 
     def test_history_reanalysis_recovers_previously_skipped_fact(self):
         history_import.remember(self.db, self.message(1, 'майорский 8200', 1000))

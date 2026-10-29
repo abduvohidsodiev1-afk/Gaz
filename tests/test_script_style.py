@@ -27,7 +27,7 @@ class ScriptStyleTests(unittest.TestCase):
         self.assertIn('Mayorskiy', payload['text'])
         self.assertIn('8 200', payload['text'])
         self.assertNotRegex(payload['text'], r'[А-Яа-яЎўҚқҒғҲҳ]')
-        self.assertEqual(payload['reply_markup']['inline_keyboard'][0][0]['text'], '💰 Narx manbasi')
+        self.assertEqual(payload['reply_markup']['inline_keyboard'][0][0]['text'], '💰 Manba')
 
     def test_cyrillic_question_gets_cyrillic_card(self):
         api = Mock()
@@ -36,7 +36,7 @@ class ScriptStyleTests(unittest.TestCase):
         group_wait.tick(api, self.db, now=1030)
         payload = api.call.call_args.args[1]
         self.assertIn('Майорский', payload['text'])
-        self.assertEqual(payload['reply_markup']['inline_keyboard'][0][0]['text'], '💰 Нарх манбаси')
+        self.assertEqual(payload['reply_markup']['inline_keyboard'][0][0]['text'], '💰 Манба')
 
     def test_urls_ids_and_phone_numbers_are_preserved(self):
         original = {'text': 'Нарх 8200. https://t.me/propan_uzbekistan_2026/42 +998901234567',

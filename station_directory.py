@@ -137,7 +137,7 @@ def observe(db, message):
 
 
 def stamp_text(stamp):
-    return datetime.fromtimestamp(stamp, timezone(timedelta(hours=5))).strftime('%d.%m %H:%M')
+    return datetime.fromtimestamp(stamp, timezone(timedelta(hours=5))).strftime('%d.%m, %H:%M')
 
 
 def detail(db, sid):
@@ -149,27 +149,32 @@ def detail(db, sid):
         observation = json.loads(saved_price[0])
         if find(observation['place']) == [sid] and observation['report_stamp'] > item.get('price_stamp', 0):
             item.update(price=observation['price'], price_stamp=observation['report_stamp'], price_source=observation.get('_price_source'))
-    text = [label(sid)]
+    name, separator, landmark = row[1].partition(' — ')
+    title = name + (' — №' + sid if sid[0].isdigit() else '')
+    text = ['⛽ ' + title]
+    if separator:
+        text.append('📍 ' + landmark)
+    text.append('')
     if item.get('price'):
-        text.append('💰 ' + f"{item['price']:,}".replace(',', ' ') + ' сўм/л · ' + stamp_text(item['price_stamp']))
+        text.append('💰 Нарх: ' + f"{item['price']:,}".replace(',', ' ') + ' сўм/л')
+        text.append('└ Хабар: ' + stamp_text(item['price_stamp']))
     else:
         text.append('💰 Нарх базада топилмади')
+    text.append('')
     if item.get('status'):
-        text.append('Сўнгги хабарда: ' + item['status'] + ' · ' + stamp_text(item['status_stamp']))
+        icon = '🟢' if item['status'].startswith('Очиқ') else '🔴'
+        text.append(icon + ' Ҳолат: ' + item['status'].replace(' / ', ', '))
+        text.append('└ Хабар: ' + stamp_text(item['status_stamp']))
     else:
-        text.append('🟢 Очиқ/ёпиқлиги: хабар берилмаган')
+        text.append('⚪ Ҳолат: очиқ ёки ёпиқлиги номаълум')
     if row[2]:
-        text.append('🕒 Эълон қилинган иш вақти: ' + row[2])
-    text.append('Гуруҳ хабарлари асосида; ҳолат ўзгариши мумкин.')
+        text.extend(['', '🕒 Иш вақти: ' + row[2]])
     price_source = item.get('price_source') or {}
     status_source = item.get('status_source') or {}
-    source = price_source or status_source
     buttons = []
-    for kind, title, entry in [('price', '💰 Нарх манбаси', price_source), ('status', '🟢 Ҳолат манбаси', status_source)]:
+    for kind, title, entry in [('price', '💰 Манба', price_source), ('status', '🚦 Манба', status_source)]:
         buttons.append({'text': title, 'url': entry['link']} if entry.get('link') else {'text': title, 'callback_data': 'ns:'+kind+':'+sid})
-    if not source.get('username') and source.get('name'):
-        text.append('Муаллиф: ' + source['name'])
-    buttons.append({'text': '📍 Мўлжал', 'url': row[3]} if row[3] else {'text': '📍 Мўлжал', 'callback_data': 'st:'+sid})
+    buttons.append({'text': '📍 Харита', 'url': row[3]} if row[3] else {'text': '📍 Харита', 'callback_data': 'st:'+sid})
     return {'text': '\n'.join(text), 'reply_markup': {'inline_keyboard': [buttons]}}
 
 

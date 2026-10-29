@@ -38,7 +38,7 @@ class QuestionIntentTests(unittest.TestCase):
         group_wait.tick(api, self.db, now=1030)
         self.assertIn('8 200', api.call.call_args.args[1]['text'])
         labels = [b['text'] for row in api.call.call_args.args[1]['reply_markup']['inline_keyboard'] for b in row]
-        self.assertEqual(labels, ['💰 Narx manbasi', '🟢 Holat manbasi', '📍 Mo‘ljal'])
+        self.assertEqual(labels, ['💰 Manba', '🚦 Manba', '📍 Xarita'])
 
     def test_qnaqa_screenshot_with_one_missing_letter_is_answered(self):
         api = Mock()

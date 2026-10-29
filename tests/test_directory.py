@@ -53,7 +53,7 @@ class DirectoryTests(unittest.TestCase):
         api = Mock()
         propanbot.handle_message(api, self.db, self.msg(2, 'Майорский очиқми?'))
         payload = api.call.call_args.args[1]
-        self.assertIn('Майорский — ГАИ пости, Оҳангарон шоссеси', payload['text'])
+        self.assertIn('⛽ Майорский — №14\n📍 ГАИ пости, Оҳангарон шоссеси', payload['text'])
         self.assertLess(len(payload['text']), 500)
         self.assertEqual(len(payload['reply_markup']['inline_keyboard']), 1)
         self.assertNotIn('keyboard', payload['reply_markup'])
@@ -107,7 +107,7 @@ class DirectoryTests(unittest.TestCase):
         directory.observe(self.db, self.msg(1, 'Назарбек 8200сум'))
         directory.observe(self.db, self.msg(2, 'Назарбек ёпиқ'))
         buttons = directory.detail(self.db, '4')['reply_markup']['inline_keyboard'][0]
-        self.assertEqual([b['text'] for b in buttons], ['💰 Нарх манбаси', '🟢 Ҳолат манбаси', '📍 Мўлжал'])
+        self.assertEqual([b['text'] for b in buttons], ['💰 Манба', '🚦 Манба', '📍 Харита'])
         self.assertEqual(buttons[0]['url'], 'https://t.me/propan_uzbekistan_2026/1')
         self.assertEqual(buttons[1]['url'], 'https://t.me/propan_uzbekistan_2026/2')
 
